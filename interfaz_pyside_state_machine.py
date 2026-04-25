@@ -16,6 +16,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.state = Screen.PATH_SCREEN
+        self.placeholder_inputs = {}
         self.create_main_ui()
 
     def set_state(self, new_state):
@@ -127,6 +128,7 @@ class MainWindow(QMainWindow):
             border-radius: 6px;
             padding: 5px;
         """)
+        self.placeholder_inputs["path"] = self.pathInput # Guardamos referencia al input para limpiar su contenido después
 
         pathLayout.addWidget(pathLabel)
         pathLayout.addWidget(self.pathInput)
@@ -241,7 +243,7 @@ class MainWindow(QMainWindow):
             rightButton.clicked.connect(lambda: self.change_screen(Screen.METHOD_SCREEN))
         elif self.state == Screen.METHOD_SCREEN:
             rightButton.setText("EXECUTE")
-            rightButton.clicked.connect(lambda: print("Execute processing"))
+            rightButton.clicked.connect(lambda: self.execute_processing())
         else:
             pass
         return rightButton
@@ -316,6 +318,7 @@ class MainWindow(QMainWindow):
         # --- INPUT ---
         input_field = QLineEdit()
         input_field.setPlaceholderText(placeholder_content)
+        self.placeholder_inputs[param_name] = input_field # Guardamos referencia al input para limpiar su contenido después
 
         input_field.setFixedWidth(80)  # suficiente para "[1,9]"
         input_field.setAlignment(Qt.AlignRight)  # <-- contenido a la derecha
@@ -341,8 +344,32 @@ class MainWindow(QMainWindow):
         container_layout_h.addWidget(description_label, stretch=1)
 
         container_layout.addWidget(container)
-    
+
+    def save_method_in_parameters_path_screen(self):
+        parameters={}
+        parameters["method"]="ising" if self.ising.isChecked() else "thresholding"
+        parameters["path"]=self.placeholder_inputs["path"].text() if self.pathInput.text() else None
+        self.placeholder_inputs["path"].remove()
+    def save_inputs_in_parameters_method_screen(self):
+        parameters={}
         
+        for param_name, input in self.placeholder_inputs.items():
+            value = input.text() if input.text() else None
+            if value is not None:
+                try:
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        pass
+            parameters[param_name] = value
+        return parameters
+    
+    def execute_processing(self):
+        parameters = self.save_inputs_in_parameters()
+        print("Executing with parameters:", parameters)
+
         
     
 
