@@ -451,6 +451,8 @@ class IsingPanel(QWidget):
                 pixels if len(pixels)<=50_000
                 else np.random.choice(pixels,50_000,replace=False)
             )
+            if sample.std() < 1e-6:
+                continue
             kde=gaussian_kde(sample)
             x=np.linspace(0,255,500)
             self.ax.plot(x,kde(x),color=color,linewidth=1.5)

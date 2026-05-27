@@ -37,7 +37,7 @@ class Ising:
             circles = [(x, y, r) for x, y, r in np.round(circles[0]).astype(int)]
             return circles
         else:
-            print("No se detectó ningún círculo.")
+            print("No se detecto ningun circulo.")
 
     def create_mask(self):
         circles=self.search_circles()
