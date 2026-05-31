@@ -32,7 +32,7 @@ class TestSessionCreation(unittest.TestCase):
         self.assertEqual(self.session.parameters, {})
 
     def test_stats_por_defecto_dict_vacio(self):
-        self.assertEqual(self.session.stats, {})
+        self.assertEqual(self.session.ising_stats, {})
 
     def test_timestamp_generado_automaticamente(self):
         self.assertIsNotNone(self.session.timestamp)
@@ -65,8 +65,8 @@ class TestSessionIsolation(unittest.TestCase):
     def test_stats_no_compartido(self):
         s1 = Session(image_name="a.tif", original_image=self.img)
         s2 = Session(image_name="b.tif", original_image=self.img)
-        s1.stats["area"] = 100
-        self.assertNotIn("area", s2.stats)
+        s1.ising_stats["area"] = 100
+        self.assertNotIn("area", s2.ising_stats)
 
 
 # =============================================================================

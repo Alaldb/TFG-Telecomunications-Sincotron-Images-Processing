@@ -148,27 +148,34 @@ class TestRunDomains(unittest.TestCase):
             temporal_ising_object=self.mock_ising,
         )
 
+    def _mock_domain_data(self, extra: dict | None = None) -> dict:
+        """Datos mínimos que get_data() debe devolver para que run_domains funcione."""
+        base = {"labeled_images": {0: np.zeros((10, 10), dtype=np.int32)}}
+        if extra:
+            base.update(extra)
+        return base
+
     @patch("core.pipeline.DomainService")
     def test_domain_data_no_esta_vacio(self, mock_cls):
-        mock_cls.return_value.get_data.return_value = {"num_domains": {0: 2}}
+        mock_cls.return_value.get_data.return_value = self._mock_domain_data({"num_domains": {0: 2}})
         result = PipelineDictator().run_domains(self.session)
         self.assertNotEqual(result.domain_data, {})
 
     @patch("core.pipeline.DomainService")
     def test_domain_service_instanciado_con_ising_object(self, mock_cls):
-        mock_cls.return_value.get_data.return_value = {}
+        mock_cls.return_value.get_data.return_value = self._mock_domain_data()
         PipelineDictator().run_domains(self.session)
         mock_cls.assert_called_once_with(self.mock_ising)
 
     @patch("core.pipeline.DomainService")
     def test_devuelve_misma_session(self, mock_cls):
-        mock_cls.return_value.get_data.return_value = {}
+        mock_cls.return_value.get_data.return_value = self._mock_domain_data()
         result = PipelineDictator().run_domains(self.session)
         self.assertIs(result, self.session)
 
     @patch("core.pipeline.DomainService")
     def test_domain_data_es_el_devuelto_por_get_data(self, mock_cls):
-        expected = {"num_domains": {0: 3, 1: 1}}
+        expected = self._mock_domain_data({"num_domains": {0: 3, 1: 1}})
         mock_cls.return_value.get_data.return_value = expected
         result = PipelineDictator().run_domains(self.session)
         self.assertEqual(result.domain_data, expected)

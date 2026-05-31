@@ -11,6 +11,7 @@ class Session:
     ising_result: np.ndarray | None = None
     domain_data: dict = field(default_factory=dict)
     parameters: dict = field(default_factory=dict)
-    stats: dict = field(default_factory=dict)
+    ising_stats: dict = field(default_factory=dict)
+    domain_stats: dict = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     temporal_ising_object: object | None = field(default=None, repr=False) #Aquí guardamos el objeto de Ising para poder usarlo en toda la pipeline

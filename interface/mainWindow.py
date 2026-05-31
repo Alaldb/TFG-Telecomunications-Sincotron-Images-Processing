@@ -3,9 +3,11 @@ import numpy as np
 from PySide6.QtWidgets import QMainWindow, QStackedWidget
 from PySide6.QtCore import Qt
 
+from core.session import Session
 from interface.panels.loadPanel import LoadPanel
 from interface.panels.bcPanel import BcPanel
 from interface.panels.isingPanel import IsingPanel
+from interface.panels.resultsPanel import ResultsPanel
 from interface.styles import app_stylesheet
 
 class MainWindow(QMainWindow):
@@ -42,6 +44,10 @@ class MainWindow(QMainWindow):
         self.ising_panel.cancelled.connect(self.goToBc)
         self.stack.addWidget(self.ising_panel)
 
+        self.results_panel = ResultsPanel()
+        self.results_panel.cancelled.connect(self.goToIsing)
+        self.stack.addWidget(self.results_panel)
+
     def onImageLoaded(self, image:np.ndarray, name: str):
         self.image = image
         self.image_name= name
@@ -58,17 +64,30 @@ class MainWindow(QMainWindow):
         self.corrected_image = corrected
         self.ising_panel.loadImage(corrected)
         self.stack.setCurrentIndex(2)
-    
-    def onSegmentationAccepted(self, result: np.ndarray, parameters: dict):
-        from core.session import Session
+
+    def goToIsing(self):
+        self.stack.setCurrentIndex(2)
+
+    def onSegmentationAccepted(self, result: np.ndarray, parameters: dict, ising_object: object):
+        from core.pipeline import PipelineDictator
+        pipeline = PipelineDictator(
+            coverage=parameters.get("coverage", 0.80),
+            beta=parameters.get("beta", 2),
+            max_iterations=parameters.get("max_iterations", 20),
+            num_states=parameters.get("num_states", 3),
+        )
         self.session = Session(
             image_name=self.image_name,
             original_image=self.image,
             corrected_image=self.corrected_image,
             ising_result=result,
             parameters=parameters,
+            temporal_ising_object=ising_object,  # ← añadir
         )
-        print(f"Session created: {self.session.image_name}")
+        pipeline = PipelineDictator(...)
+        self.session = pipeline.run_domains(self.session)
+        self.results_panel.loadSession(self.session)
+        self.stack.setCurrentIndex(3)
 
 
 if __name__ == "__main__":

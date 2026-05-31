@@ -1,5 +1,6 @@
 from __future__ import annotations
 import numpy as np
+from stats.domainStats import computeDomainStats
 from core.session import Session
 from processing.corrector import Corrector
 from processing.isingMethodService import Ising
@@ -43,4 +44,5 @@ class PipelineDictator:
     def run_domains(self, session: Session) -> Session:
         domain_service=DomainService(session.temporal_ising_object)
         session.domain_data=domain_service.get_data()
+        session.domain_stats=computeDomainStats(session.domain_data["labeled_images"])
         return session

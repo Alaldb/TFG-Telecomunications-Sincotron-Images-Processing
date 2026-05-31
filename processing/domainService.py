@@ -62,6 +62,7 @@ class DomainService:
         return {
             "original":      self.ising.original_image,
             "binary_images": self.binary_images,
+            "labeled_images": self.labeled_images,
             "colored_images": self.colored_images,
             "num_domains":   {
                 state: int(labeled.max())
