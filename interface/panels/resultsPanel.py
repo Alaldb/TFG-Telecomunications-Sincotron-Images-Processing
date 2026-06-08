@@ -7,7 +7,7 @@ from matplotlib.figure import Figure
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QPushButton, QLabel, QSlider, QLineEdit,
-    QSizePolicy,
+    QSizePolicy,QFileDialog, QMessageBox
 )
 from PySide6.QtGui import QPixmap, QImage, QIntValidator
 from PySide6.QtCore import QThread, Qt, Signal, QSize
@@ -17,7 +17,7 @@ from interface.styles import COLORS
 from core.session import Session
 from processing.domainService import DomainService
 from stats.domainStats import computeDomainStats
-
+from persistence.session_io import saveSession,exportCorrectedImage
 class DomainsWorker(QThread):
     finished=Signal(object)
     error=Signal(str)
@@ -28,7 +28,7 @@ class DomainsWorker(QThread):
     
     def run(self)->None:
         try:
-            domain_service=DomainService(self.session.temporal_ising_object)
+            domain_service=DomainService(self.session.segmentation_container)
             self.session.domain_data=domain_service.get_data()
             self.session.domain_stats=computeDomainStats(self.session.domain_data["labeled_images"])
             self.finished.emit(self.session)
@@ -37,6 +37,7 @@ class DomainsWorker(QThread):
 
 class ResultsPanel(QWidget):
     save_requested=Signal(object)
+    export_requested=Signal(object)
     cancelled=Signal()
 
     def __init__(self, parent=None):
@@ -50,6 +51,7 @@ class ResultsPanel(QWidget):
         self.xlim_min: float=0.0
         self.xlim_max: float=0.0
         self.worker: DomainsWorker|None=None
+        self.extension: str=".session"
         self.buildUi()
 
     def buildUi(self):
@@ -231,6 +233,12 @@ class ResultsPanel(QWidget):
     
     def buildBottomRow(self)->QHBoxLayout:
         row_layout=QHBoxLayout()
+
+        self.explorer_but=QPushButton("Domain Explorer")
+        self.explorer_but.setFixedWidth(160)
+        self.explorer_but.clicked.connect(self.onExplorerClicked)
+        row_layout.addWidget(self.explorer_but)
+
         row_layout.addStretch()
 
         self.cancel_but=QPushButton("Cancelar")
@@ -238,21 +246,28 @@ class ResultsPanel(QWidget):
         self.cancel_but.setFixedWidth(100)
         self.cancel_but.clicked.connect(self.cancelled)
 
+        self.export_but=QPushButton("Export Corrected Image")
+        self.export_but.setFixedWidth(180)
+        self.export_but.clicked.connect(self.onExportClicked)
+
         self.save_but=QPushButton("Save")
         self.save_but.setFixedWidth(100)
         self.save_but.clicked.connect(self.onSaveClicked)
 
         row_layout.addWidget(self.cancel_but)
         row_layout.addSpacing(8)
+        row_layout.addWidget(self.export_but)
+        row_layout.addSpacing(8)
         row_layout.addWidget(self.save_but)
         return row_layout
 
     def loadSession(self, session: Session)->None:
         self.session=session
-        self.worker=DomainsWorker(session)
-        self.worker.finished.connect(self.onDomainsFinished)
-        self.worker.error.connect(self.onDomainsError)
-        self.worker.start()
+        if session.segmentation_container is not None:
+            self.worker=DomainsWorker(session)
+            self.worker.finished.connect(self.onDomainsFinished)
+            self.worker.error.connect(self.onDomainsError)
+            self.worker.start()
         self.min_area=0.0
         self.active_state=0
 
@@ -361,6 +376,13 @@ class ResultsPanel(QWidget):
         self.active_metric=metric
         self.highlightMetric(metric)
         self.updateHistogram()
+
+    def onExplorerClicked(self)->None:
+        if self.session is None:
+            return
+        from interface.panels.domainExplorerWindow import DomainExplorerWindow
+        window=DomainExplorerWindow(self.session, self.min_area, parent=self)
+        window.show()
     
     def onSliderChanged(self, value: int)->None:
         self.min_area=float(value)
@@ -393,7 +415,38 @@ class ResultsPanel(QWidget):
         self.updateHistogram()
 
     def onSaveClicked(self)->None:
-        self.save_requested.emit(self.session)
+        if self.session is None:
+            return
+        path, _=QFileDialog.getSaveFileName(
+                self, 
+                "Save Session", f"{self.session.image_name}{self.extension}", 
+                f"Session Files (*{self.extension})"
+                )
+        if not path:
+            return
+        try:
+            saveSession(self.session, path)
+            QMessageBox.information(self, "Session Saved", f"Session saved successfully to {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error Saving Session", f"An error occurred while saving the session:\n{str(e)}")
+
+    def onExportClicked(self)->None:
+        if self.session is None or self.session.corrected_image is None:
+            QMessageBox.warning(self, "No Corrected Image", "There is no corrected image to export.")
+            return
+        path, _=QFileDialog.getSaveFileName(
+            self,
+            "Export Corrected Image",
+            f"{self.session.image_name}_corrected.tif",
+            "TIFF Files (*.tif)"
+        )
+        if not path:
+            return
+        try:
+            exportCorrectedImage(self.session, path)
+            QMessageBox.information(self, "Image Exported", f"Corrected image exported successfully to {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error Exporting Image", f"An error occurred while exporting the image:\n{str(e)}")
 
     def highlightTab(self,active_key: int|str)->None:
         for key, but in self.state_tabs.items():
@@ -483,7 +536,7 @@ class ResultsPanel(QWidget):
         if self.active_state is None:
             sorted_states=sorted(
                 self.session.domain_stats.keys(),
-                key=lambda s: self.session.temporal_ising_object.parameters[s]['mean']
+                key=lambda s: self.session.segmentation_container.parameters[s]['mean']
             )
             n=len(sorted_states)
             for i,state in enumerate(sorted_states):
@@ -498,7 +551,7 @@ class ResultsPanel(QWidget):
                 color=(r,g,b)
                 self.ax.hist(
                     values,
-                    bins=min(30,len(values)),
+                    bins=min(30,len(values)),#mejorar con reglas euristicas para elegir el bins sturges, scott, freedman-diaconis, numero de puntos
                     color=color,
                     alpha=0.6,
                     linewidth=0,

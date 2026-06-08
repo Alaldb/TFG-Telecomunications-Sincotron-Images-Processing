@@ -5,6 +5,7 @@ from core.session import Session
 from processing.corrector import Corrector
 from processing.isingMethodService import Ising
 from processing.domainService import DomainService
+from core.segmentationContainer import SegmentationContainer,SegmentationMethod
 
 class PipelineDictator:
 
@@ -38,11 +39,12 @@ class PipelineDictator:
         )
         ising.run(session.corrected_image)
         session.ising_result=ising.final_image
-        session.temporal_ising_object = ising
+        session.segmentation_container = ising.getSegmentationContainer()
+        session.segmentation_method = SegmentationMethod.ICM
         return session
     
     def run_domains(self, session: Session) -> Session:
-        domain_service=DomainService(session.temporal_ising_object)
+        domain_service=DomainService(session.segmentation_container)
         session.domain_data=domain_service.get_data()
         session.domain_stats=computeDomainStats(session.domain_data["labeled_images"])
         return session

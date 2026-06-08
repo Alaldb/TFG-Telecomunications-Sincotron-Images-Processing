@@ -6,9 +6,10 @@ from PySide6.QtCore import Qt
 from core.session import Session
 from interface.panels.loadPanel import LoadPanel
 from interface.panels.bcPanel import BcPanel
-from interface.panels.isingPanel import IsingPanel
+from interface.panels.icmPanel import IsingPanel
 from interface.panels.resultsPanel import ResultsPanel
 from interface.styles import app_stylesheet
+from core.segmentationContainer import SegmentationContainer
 
 class MainWindow(QMainWindow):
 
@@ -32,6 +33,7 @@ class MainWindow(QMainWindow):
         self.load_panel=LoadPanel()
         self.load_panel.image_loaded.connect(self.onImageLoaded)
         self.load_panel.next_but.clicked.connect(self.goToBc)
+        self.load_panel.session_loaded.connect(self.onSessionLoaded)
         self.stack.addWidget(self.load_panel)
 
         self.bc_panel=BcPanel()
@@ -52,14 +54,21 @@ class MainWindow(QMainWindow):
         self.image = image
         self.image_name= name
     
+    def onSessionLoaded(self, session:Session)->None:
+        self.session=session
+        self.results_panel.cancelled.disconnect()
+        self.results_panel.cancelled.connect(self.goToLoad)
+        self.results_panel.loadSession(session)
+        self.stack.setCurrentIndex(3)
+
     def goToBc(self):
         if self.image is not None:
             self.bc_panel.defaultCorrection(self.image)
             self.stack.setCurrentIndex(1)
-    
+
     def goToLoad(self):
         self.stack.setCurrentIndex(0)
-    
+
     def onCorrectionAccepted(self, corrected: np.ndarray, v_low: int, v_high: int):
         self.corrected_image = corrected
         self.ising_panel.loadImage(corrected)
@@ -68,23 +77,21 @@ class MainWindow(QMainWindow):
     def goToIsing(self):
         self.stack.setCurrentIndex(2)
 
-    def onSegmentationAccepted(self, result: np.ndarray, parameters: dict, ising_object: object):
+    def onSegmentationAccepted(self, ising_container: SegmentationContainer):
         from core.pipeline import PipelineDictator
-        pipeline = PipelineDictator(
-            coverage=parameters.get("coverage", 0.80),
-            beta=parameters.get("beta", 2),
-            max_iterations=parameters.get("max_iterations", 20),
-            num_states=parameters.get("num_states", 3),
-        )
         self.session = Session(
             image_name=self.image_name,
             original_image=self.image,
             corrected_image=self.corrected_image,
-            ising_result=result,
-            parameters=parameters,
-            temporal_ising_object=ising_object,  # ← añadir
+            ising_result=ising_container.final_image,
+            parameters=ising_container.method_configuration,
+            ising_stats=ising_container.parameters,
+            segmentation_container=ising_container,
+            segmentation_method=ising_container.method
         )
-        pipeline = PipelineDictator(...)
+        pipeline = PipelineDictator()
+        self.results_panel.cancelled.disconnect()
+        self.results_panel.cancelled.connect(self.goToIsing)
         self.session = pipeline.run_domains(self.session)
         self.results_panel.loadSession(self.session)
         self.stack.setCurrentIndex(3)

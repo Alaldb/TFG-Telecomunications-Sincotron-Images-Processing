@@ -6,7 +6,7 @@ from matplotlib.figure import Figure
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSlider, QLineEdit,
-    QSizePolicy, QFrame,
+    QSizePolicy, QFrame,QCheckBox,QScrollArea
 )
 from PySide6.QtGui import QPixmap, QImage, QIntValidator, QDoubleValidator
 from PySide6.QtCore import QLocale, QSize, Qt, Signal
@@ -27,6 +27,8 @@ class BcPanel(QWidget):
         self.brightness: int=0
         self.contrast: float=1.0
         self.updating=False
+        self.crop_enabled: bool=False
+        self.crop_px: int=5
         self.buildUi()
     
     #Functionality of the Panel, see Corrector class
@@ -92,7 +94,6 @@ class BcPanel(QWidget):
         container.setStyleSheet(f"""
             QFrame {{
                 border: 1px solid {COLORS['border']};
-                border-radius: 8px;
                 background-color: {COLORS['panel']};               
             }}
         """)
@@ -103,25 +104,6 @@ class BcPanel(QWidget):
         title=QLabel("Brightness and Contrast")
         title.setStyleSheet(
             f"font-size: 15px; font-weight: bold; color: {COLORS['text']}; border: none;"
-        )
-
-        instructions=QLabel(
-            "Adjust low and high ends of intensity\n"
-            "to control the linear stretch applied to the image.\n\n"
-            "Values outside [0,255] are clipped."
-        )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(
-            f"font-size: 12px; color: {COLORS['text_secondary']}; border: none;"
-        )
-
-        instructionsbc=QLabel(
-            "Values outside [-127,127] are clipped for brightness.\n"
-            "Contrast accept float values, the decimal separator is '.'"
-        )
-        instructionsbc.setWordWrap(True)
-        instructionsbc.setStyleSheet(
-            f"font-size: 12px; color: {COLORS['text_secondary']}; border: none;"
         )
 
         #Low intensity end
@@ -176,23 +158,56 @@ class BcPanel(QWidget):
         self.reset_but=QPushButton("Reset to default values")
         self.reset_but.clicked.connect(self.onReset)
 
+        separator2=QFrame()
+        separator2.setFrameShape(QFrame.HLine)
+        separator2.setStyleSheet(f"color: {COLORS['border']}; border: none; border-top: 1px solid {COLORS['border']};")
+
+        #Crop Input
+        crop_label=QLabel("Crop borders")
+        crop_label.setStyleSheet(f"font-weight: bold; color: {COLORS['text']}; border: none;")
+        self.crop_check=QCheckBox()
+        self.crop_check.setChecked(False)
+        crop_input_label=QLabel("px")
+        crop_input_label.setStyleSheet(f"font-size: 12px; color: {COLORS['text_secondary']}; border: none;")
+        self.crop_input=QLineEdit("5")
+        self.crop_input.setFixedWidth(45)
+        self.crop_input.setValidator(QIntValidator(0, 100))
+        self.crop_input.setEnabled(False)
+
+        crop_row=QHBoxLayout()
+        crop_row.addWidget(crop_label)
+        crop_row.addStretch()
+        crop_row.addWidget(self.crop_check)
+        crop_row.addWidget(self.crop_input)
+        crop_row.addWidget(crop_input_label)
+
+        self.crop_check.stateChanged.connect(self.onCropToggled)
+        self.crop_input.editingFinished.connect(self.onCropChanged)
+
+        #Estos toolTips son provisionales, no se si funcionan bien del todo
+        vlow_label.setToolTip("Low end of the intensity range. Values outside [0,255] are clipped.")
+        vhigh_label.setToolTip("High end of the intensity range. Values outside [0,255] are clipped.")
+        brightness_label.setToolTip("Values outside [-127,127] are clipped.")
+        contrast_label.setToolTip("Float value. Use '.' as decimal separator.")
+        crop_label.setToolTip("Pixels to be croped from the image, use it if the borders could induce errors in domain separation.\nValues outside [0,100] are clipped.")
+
         #Proper Layout
         right_layout.addWidget(title)
-        right_layout.addWidget(instructions)
-        right_layout.addSpacing(8)
         right_layout.addLayout(vlow_row)
         right_layout.addWidget(self.vlow_slider)
         right_layout.addSpacing(4)
         right_layout.addLayout(vhigh_row)
         right_layout.addWidget(self.vhigh_slider)
         right_layout.addSpacing(12)
-        right_layout.addWidget(instructionsbc)
-        right_layout.addSpacing(8)
         right_layout.addLayout(brightness_row)
         right_layout.addSpacing(4)
         right_layout.addLayout(contrast_row)
         right_layout.addSpacing(8)
         right_layout.addWidget(self.reset_but)
+        right_layout.addSpacing(12)
+        right_layout.addWidget(separator2)
+        right_layout.addSpacing(8)
+        right_layout.addLayout(crop_row)
         right_layout.addStretch()
 
         #Update Values
@@ -203,7 +218,15 @@ class BcPanel(QWidget):
         self.input_brightness.editingFinished.connect(self.onInputBrightness)
         self.input_contrast.editingFinished.connect(self.onInputContrast)
 
-        return container
+        #Scroll
+        scroll=QScrollArea()
+        scroll.setWidget(container)
+        scroll.setWidgetResizable(True)
+        scroll.setFixedWidth(300)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        return scroll
     
     def buildBottomRow(self) -> QHBoxLayout:
         row=QHBoxLayout()
@@ -310,6 +333,23 @@ class BcPanel(QWidget):
         self.updateValues()
         self.applyCorrection()
         self.updateHistogram()
+    
+    def onCropToggled(self, state:int)->None:
+        self.crop_enabled=bool(state)
+        self.crop_input.setEnabled(self.crop_enabled)
+        self.applyCorrection()
+        self.updateHistogram()
+    
+    def onCropChanged(self)->None:
+        try:
+            self.crop_px=max(0,min(100,int(self.crop_input.text())))
+        except ValueError:
+            self.crop_px=5
+        self.crop_input.setText(str(self.crop_px))
+        if self.crop_enabled:
+            self.applyCorrection()
+            self.updateHistogram()
+
         
     def onNextClicked(self) -> None:
         if self.corrected is not None:
@@ -328,7 +368,11 @@ class BcPanel(QWidget):
     def applyCorrection(self) -> None:
         if self.image is None or self.v_high == self.v_low:
             return
-        stretched = self.corrector.linear_stretch(self.image, self.v_low, self.v_high)
+        image=self.image
+        if self.crop_enabled and self.crop_px>0:
+            n=self.crop_px
+            image=image[n:-n,n:-n]
+        stretched = self.corrector.linear_stretch(image, self.v_low, self.v_high)
         self.corrected = self.corrector.adjust_brightness_contrast(stretched, self.brightness, self.contrast)
         self.updateImageView()
 
@@ -347,9 +391,13 @@ class BcPanel(QWidget):
     def updateHistogram(self) -> None:
         if self.image is None:
             return
+        image=self.image
+        if self.crop_enabled and self.crop_px>0:
+            n=self.crop_px
+            image = image[n:-n,n:-n]
         self.ax.clear()
         self.ax.hist(
-            self.image.ravel(),
+            image.ravel(),
             bins=256,
             range=(0,255),
             color=COLORS['accent'],

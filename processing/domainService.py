@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 from skimage.measure import label
-from processing.isingMethodService import Ising
+from core.segmentationContainer import SegmentationContainer
 
 
 class DomainService:
 
-    def __init__(self, ising, seed = 42):
-        self.ising = ising
+    def __init__(self, segmentation_container: SegmentationContainer, seed = 42):
+        self.ising = segmentation_container
         self.seed = seed
         self.binary_images= self.extract_state_images()
         self.labeled_images= self.label_domains()

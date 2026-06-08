@@ -8,11 +8,14 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import QSize, Qt, Signal
+from core.session import Session
 from interface.styles import COLORS
+from persistence.session_io import loadSession
 
 
 class LoadPanel(QWidget):
     image_loaded = Signal(np.ndarray, str) #Create signal that allows the creation of the widget in the main window with the image and its name
+    session_loaded = Signal(Session) #Create signal that allows the creation of the widget in the main window with the session data when loading a session
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -41,14 +44,21 @@ class LoadPanel(QWidget):
             f"font-size: 14px; color: {COLORS['text_secondary']};"
         )
 
-        self.btn_load = QPushButton("Load image")
-        self.btn_load.setFixedWidth(180)
-        self.btn_load.setFixedHeight(42)
-        self.btn_load.clicked.connect(self.onLoadClicked)
+        self.btn_load_image = QPushButton("Load image")
+        self.btn_load_image.setFixedWidth(180)
+        self.btn_load_image.setFixedHeight(42)
+        self.btn_load_image.clicked.connect(self.onLoadImageClicked)
+
+        self.btn_load_session = QPushButton("Load session")
+        self.btn_load_session.setFixedWidth(180)
+        self.btn_load_session.setFixedHeight(42)
+        self.btn_load_session.clicked.connect(self.onLoadSessionClicked)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        btn_row.addWidget(self.btn_load)
+        btn_row.addWidget(self.btn_load_image)
+        btn_row.addSpacing(24)
+        btn_row.addWidget(self.btn_load_session)
         btn_row.addStretch()
 
         empty_layout.addWidget(title)
@@ -90,10 +100,15 @@ class LoadPanel(QWidget):
         self.image_view.setMinimumHeight(500)
         frame_layout.addWidget(self.image_view)
 
-        self.btn_load2 = QPushButton("Load image")
-        self.btn_load2.setFixedWidth(180)
-        self.btn_load2.setFixedHeight(42)
-        self.btn_load2.clicked.connect(self.onLoadClicked)
+        self.btn_load_image2 = QPushButton("Load image")
+        self.btn_load_image2.setFixedWidth(180)
+        self.btn_load_image2.setFixedHeight(42)
+        self.btn_load_image2.clicked.connect(self.onLoadImageClicked)
+
+        self.btn_load_session2 = QPushButton("Load session")
+        self.btn_load_session2.setFixedWidth(180)
+        self.btn_load_session2.setFixedHeight(42)
+        self.btn_load_session2.clicked.connect(self.onLoadSessionClicked)
 
         bottom_row = QHBoxLayout()
         bottom_row.addStretch()
@@ -103,12 +118,13 @@ class LoadPanel(QWidget):
 
         loaded_layout.addWidget(self.file_name)
         loaded_layout.addWidget(image_frame, stretch=1)
-        loaded_layout.addWidget(self.btn_load2)
+        loaded_layout.addWidget(self.btn_load_image2, alignment=Qt.AlignRight)
+        loaded_layout.addWidget(self.btn_load_session2, alignment=Qt.AlignRight)
         loaded_layout.addLayout(bottom_row)
 
         main_layout.addWidget(self.loaded_state)
 
-    def onLoadClicked(self):
+    def onLoadImageClicked(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Select image", "",
             "Image files (*.tif *.tiff)"
@@ -134,6 +150,24 @@ class LoadPanel(QWidget):
         self.file_name.setText(name)
         self.showImage(image)
         self.image_loaded.emit(image, name)
+    
+    def onLoadSessionClicked(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select session", "",
+            "Session files (*.session)"
+        )
+        if not path:
+            return
+        try:
+            session=loadSession(path)
+            self.session_loaded.emit(session)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error loading session",
+                f"Could not load the session:\n{path}\n\nThe file may be corrupted or in an unsupported format.\n\nError details:\n{str(e)}"
+            )
+
 
     def showImage(self, image: np.ndarray):
         image_8 = self.toUint8(image)

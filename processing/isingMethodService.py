@@ -3,6 +3,7 @@ from sklearn import cluster
 import cv2
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from core.segmentationContainer import SegmentationContainer, SegmentationMethod
 
 
 class Ising:
@@ -90,6 +91,7 @@ class Ising:
         return neighbour_sum
     
     def apply_ising_model_icm(self, beta, max_iterations):
+        self.initial_labels=self.iterative_matrix.copy()
         matrix_iteration = self.iterative_matrix.copy()
         matrix_background = self.iterative_matrix.copy()
         for iteration in range(max_iterations):
@@ -116,6 +118,21 @@ class Ising:
             self.parameters = self.calculate_statistical_variables()
         
         return matrix_iteration
+    def getSegmentationContainer(self)->SegmentationContainer:
+        container=SegmentationContainer(
+            original_image=self.original_image,
+            mask=self.mask,
+            final_image=self.final_image,
+            num_states=self.num_states,
+            parameters=self.parameters,
+            initial_labels=self.initial_labels,
+            method=SegmentationMethod.ICM,
+            method_configuration={
+                "beta": self.beta,
+                "max_iterations": self.max_iterations,
+            }
+        )
+        return container
 
 def plot_results(ising):
     import matplotlib.pyplot as plt

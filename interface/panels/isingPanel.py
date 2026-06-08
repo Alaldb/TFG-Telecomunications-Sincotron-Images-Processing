@@ -16,10 +16,11 @@ from PySide6.QtCore import Qt, Signal, QSize, QThread
 
 from interface.styles import COLORS
 from processing.isingMethodService import Ising
+from core.segmentationContainer import SegmentationContainer
 
 
 class IsingWorker(QThread):
-    finished=Signal(np.ndarray, object, object)
+    finished=Signal(object)
     error=Signal(str)
 
     def __init__(self, image:np.ndarray, beta: float, max_iterations: int, num_states: int):
@@ -33,16 +34,12 @@ class IsingWorker(QThread):
         try:
             ising=Ising(self.beta,self.max_iterations,self.num_states)
             ising.run(self.image)
-            self.finished.emit(
-                ising.final_image.copy(),
-                ising.parameters.copy(),
-                ising
-            )
+            self.finished.emit(ising.getSegmentationContainer())
         except Exception as e:
             self.error.emit(str(e))
 
 class IsingPanel(QWidget):
-    segmentation_accepted=Signal(np.ndarray, object, object)
+    segmentation_accepted=Signal(object)
     cancelled=Signal()
 
     PARAMETERS_INFO={
@@ -76,6 +73,7 @@ class IsingPanel(QWidget):
         self.beta: float=2.0
         self.max_iterations: int=10
         self.num_states: int=3
+        self.container: SegmentationContainer|None=None
         self.buildUi()
 
     def loadImage(self, image:np.ndarray)->None:
@@ -338,10 +336,10 @@ class IsingPanel(QWidget):
         self.worker.error.connect(self.onIsingError)
         self.worker.start()
 
-    def onIsingFinished(self, result: np.ndarray, parameters: dict, ising_object: object)->None:
-        self.result=result
-        self.parameters=parameters
-        self.ising_object = ising_object
+    def onIsingFinished(self, ising_container: SegmentationContainer)->None:
+        self.container= ising_container
+        self.result=ising_container.final_image
+        self.parameters=ising_container.parameters
         self.computeStateColors()
         self.rebuildStateButtons()
         self.updateStateView(self.sorted_states[0])
@@ -520,7 +518,7 @@ class IsingPanel(QWidget):
         
     def onNextClicked(self) -> None:
         if self.result is not None:
-            self.segmentation_accepted.emit(self.result, self.parameters, self.ising_object)
+            self.segmentation_accepted.emit(self.container)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
