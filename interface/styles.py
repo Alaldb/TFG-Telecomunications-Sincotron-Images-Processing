@@ -63,4 +63,18 @@ def app_stylesheet() -> str:
             margin: -5px 0;
             border-radius: 7px;
         }}
+        QRadioButton::indicator {{
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            border: 2px solid {colors['accent']};
+            background-color: {colors['panel']};
+        }}
+        QRadioButton::indicator:checked {{
+            background-color: {colors['accent']};
+            border: 2px solid {colors['accent']};
+        }}
+        QRadioButton::indicator:hover {{
+            border: 2px solid {colors['accent_hover']};
+        }}
     """

@@ -4,6 +4,7 @@ import zipfile
 import numpy as np
 from core.session import Session
 from core.segmentationContainer import SegmentationMethod
+from openpyxl import Workbook
 
 def saveSession(session:Session, path:str)->None:
     json_data={
@@ -85,3 +86,18 @@ def exportCorrectedImage(session:Session, path:str)->None:
         raise ValueError("Session has no corrected image to export.")
     import cv2
     cv2.imwrite(path, session.corrected_image)
+
+def exportDataExcel(session: Session, path:str, min_area:float=0)->None:
+    file=Workbook()
+    file.remove(file.active)
+    for state, domains in session.domain_stats.items():
+        current_page=file.create_sheet(title=f"Sate {state+1}")
+        filtered_domains={domain_id:metrics
+                          for domain_id, metrics in domains.items() if metrics["area"]>=min_area}
+        
+        if filtered_domains:
+            metric_names=[domain_metrics.upper() for domain_metrics in next(iter(filtered_domains.values())).keys()]
+            current_page.append(["DOMAIN ID"]+metric_names)
+            for domian_id, metrics in filtered_domains.items():
+                current_page.append([domian_id]+[metrics[metric.lower()] for metric in metric_names])
+    file.save(path)

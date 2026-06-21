@@ -1,10 +1,12 @@
 from __future__ import annotations
+from pathlib import Path
 import cv2
 import numpy as np
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFileDialog,
-    QSizePolicy, QFrame, QMessageBox
+    QSizePolicy, QFrame, QMessageBox,
+    QRadioButton, QButtonGroup
 )
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import QSize, Qt, Signal
@@ -16,6 +18,7 @@ from persistence.session_io import loadSession
 class LoadPanel(QWidget):
     image_loaded = Signal(np.ndarray, str) #Create signal that allows the creation of the widget in the main window with the image and its name
     session_loaded = Signal(Session) #Create signal that allows the creation of the widget in the main window with the session data when loading a session
+    home = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,17 +57,28 @@ class LoadPanel(QWidget):
         self.btn_load_session.setFixedHeight(42)
         self.btn_load_session.clicked.connect(self.onLoadSessionClicked)
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        btn_row.addWidget(self.btn_load_image)
-        btn_row.addSpacing(24)
-        btn_row.addWidget(self.btn_load_session)
-        btn_row.addStretch()
+        option_row = QHBoxLayout()
+        option_row.addStretch()
+        option_row.addWidget(self.btn_load_image)
+        option_row.addSpacing(24)
+        option_row.addWidget(self.btn_load_session)
+        option_row.addStretch()
+
+        bottom_row = QHBoxLayout()
+        bottom_row.addStretch()
+
+        self.home_but = QPushButton("Home")
+        self.home_but.setFixedWidth(120)
+        self.home_but.setObjectName("cancel_btn")
+        self.home_but.clicked.connect(self.home)
+        bottom_row.addWidget(self.home_but)
+        bottom_row.addStretch()
 
         empty_layout.addWidget(title)
         empty_layout.addWidget(subtitle)
         empty_layout.addSpacing(24)
-        empty_layout.addLayout(btn_row)
+        empty_layout.addLayout(option_row)
+        empty_layout.addLayout(bottom_row)
 
         main_layout.addStretch()
         main_layout.addWidget(self.empty_state)
@@ -97,8 +111,11 @@ class LoadPanel(QWidget):
         self.image_view = QLabel()
         self.image_view.setAlignment(Qt.AlignCenter)
         self.image_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.image_view.setMinimumHeight(500)
+        self.image_view.setMinimumHeight(300)
         frame_layout.addWidget(self.image_view)
+
+        action_row=QHBoxLayout()
+        action_row.addStretch()
 
         self.btn_load_image2 = QPushButton("Load image")
         self.btn_load_image2.setFixedWidth(180)
@@ -110,17 +127,49 @@ class LoadPanel(QWidget):
         self.btn_load_session2.setFixedHeight(42)
         self.btn_load_session2.clicked.connect(self.onLoadSessionClicked)
 
+        action_row.addWidget(self.btn_load_image2)
+        action_row.addSpacing(8)
+        action_row.addWidget(self.btn_load_session2)
+        action_row.addStretch()
+
+        method_row=QHBoxLayout()
+        method_row.addStretch()
+
+        self.method_group=QButtonGroup(self)
+
+        self.btn_icm=QRadioButton("ICM")
+        self.btn_icm.setChecked(True)
+
+        self.btn_gc=QRadioButton("Graph Cuts")
+
+        self.method_group.addButton(self.btn_icm)
+        self.method_group.addButton(self.btn_gc)
+
+        method_row.addWidget(self.btn_icm)
+        method_row.addSpacing(16)
+        method_row.addWidget(self.btn_gc)
+        method_row.addStretch()
+
         bottom_row = QHBoxLayout()
         bottom_row.addStretch()
-        self.next_but = QPushButton("Next →")
+        self.next_but = QPushButton("Next ->")
         self.next_but.setFixedWidth(120)
+        
+
+        self.home_but = QPushButton("Home")
+        self.home_but.setFixedWidth(120)
+        self.home_but.setObjectName("cancel_btn")
+        self.home_but.clicked.connect(self.home)
+        bottom_row.addWidget(self.home_but)
         bottom_row.addWidget(self.next_but)
+        bottom_row.addStretch()
 
         loaded_layout.addWidget(self.file_name)
         loaded_layout.addWidget(image_frame, stretch=1)
-        loaded_layout.addWidget(self.btn_load_image2, alignment=Qt.AlignRight)
-        loaded_layout.addWidget(self.btn_load_session2, alignment=Qt.AlignRight)
+        loaded_layout.addLayout(action_row)
+        loaded_layout.addLayout(method_row)
         loaded_layout.addLayout(bottom_row)
+        
 
         main_layout.addWidget(self.loaded_state)
 
@@ -141,7 +190,7 @@ class LoadPanel(QWidget):
             )
             return
 
-        name_with_ext = path.split("/")[-1].split("\\")[-1]
+        name_with_ext = Path(path).name
         name = name_with_ext.rsplit(".", 1)[0]
 
         self.empty_state.hide()
@@ -186,3 +235,7 @@ class LoadPanel(QWidget):
         img = image.astype(np.float32)
         img = (img - img.min()) / (img.max() - img.min() + 1e-8) * 255
         return img.astype(np.uint8)
+    
+    @property
+    def selected_method(self) -> str:
+        return "ICM" if self.btn_icm.isChecked() else "GraphCuts"

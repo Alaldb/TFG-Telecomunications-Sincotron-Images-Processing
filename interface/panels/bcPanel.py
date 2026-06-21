@@ -16,6 +16,7 @@ from processing.corrector import Corrector
 class BcPanel(QWidget):
     correction_accepted=Signal(np.ndarray,int,int)
     cancelled=Signal()
+    home=Signal()
 
     def __init__(self,parent=None):
         super().__init__(parent)
@@ -232,7 +233,12 @@ class BcPanel(QWidget):
         row=QHBoxLayout()
         row.addStretch()
 
-        self.cancel_but=QPushButton("Cancel")
+        self.home_but=QPushButton("Home")
+        self.home_but.setObjectName("cancel_btn")
+        self.home_but.setFixedWidth(100)
+        self.home_but.clicked.connect(self.home)
+
+        self.cancel_but=QPushButton("<- Back")
         self.cancel_but.setObjectName("cancel_btn")
         self.cancel_but.setFixedWidth(100)
         self.cancel_but.clicked.connect(self.cancelled)
@@ -241,6 +247,8 @@ class BcPanel(QWidget):
         self.next_but.setFixedWidth(100)
         self.next_but.clicked.connect(self.onNextClicked)
 
+        row.addWidget(self.home_but)
+        row.addSpacing(8)
         row.addWidget(self.cancel_but)
         row.addSpacing(8)
         row.addWidget(self.next_but)

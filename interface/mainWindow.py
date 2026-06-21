@@ -10,6 +10,9 @@ from interface.panels.icmPanel import IsingPanel
 from interface.panels.resultsPanel import ResultsPanel
 from interface.styles import app_stylesheet
 from core.segmentationContainer import SegmentationContainer
+from interface.panels.graphCutsPanel import GraphCutsPanel
+from interface.panels.startPanel import StartPanel
+from interface.panels.domainComparisonPanel import DomainComparisonPanel
 
 class MainWindow(QMainWindow):
 
@@ -30,25 +33,44 @@ class MainWindow(QMainWindow):
         self.stack=QStackedWidget()
         self.setCentralWidget(self.stack)
 
+        self.start_panel = StartPanel()
+        self.start_panel.analyse_requested.connect(self.goToLoad)
+        self.start_panel.compare_requested.connect(self.goToComparison)
+        self.stack.addWidget(self.start_panel)
+
         self.load_panel=LoadPanel()
         self.load_panel.image_loaded.connect(self.onImageLoaded)
         self.load_panel.next_but.clicked.connect(self.goToBc)
+        self.load_panel.home.connect(self.goToStart)
         self.load_panel.session_loaded.connect(self.onSessionLoaded)
         self.stack.addWidget(self.load_panel)
 
         self.bc_panel=BcPanel()
         self.bc_panel.correction_accepted.connect(self.onCorrectionAccepted)
         self.bc_panel.cancelled.connect(self.goToLoad)
+        self.bc_panel.home.connect(self.goToStart)
         self.stack.addWidget(self.bc_panel)
 
-        self.ising_panel = IsingPanel()
-        self.ising_panel.segmentation_accepted.connect(self.onSegmentationAccepted)
-        self.ising_panel.cancelled.connect(self.goToBc)
-        self.stack.addWidget(self.ising_panel)
+        self.imc_panel = IsingPanel()
+        self.imc_panel.segmentation_accepted.connect(self.onSegmentationAccepted)
+        self.imc_panel.cancelled.connect(self.goToBc)
+        self.imc_panel.home.connect(self.goToStart)
+        self.stack.addWidget(self.imc_panel)
+
+        self.graph_cuts_panel = GraphCutsPanel()
+        self.graph_cuts_panel.segmentation_accepted.connect(self.onSegmentationAccepted)
+        self.graph_cuts_panel.cancelled.connect(self.goToBc)
+        self.graph_cuts_panel.home.connect(self.goToStart)
+        self.stack.addWidget(self.graph_cuts_panel)
 
         self.results_panel = ResultsPanel()
-        self.results_panel.cancelled.connect(self.goToIsing)
+        self.results_panel.cancelled.connect(self.goToSegmentation)
+        self.results_panel.home.connect(self.goToStart)
         self.stack.addWidget(self.results_panel)
+
+        self.comparison_panel = DomainComparisonPanel()
+        self.comparison_panel.home.connect(self.goToStart)
+        self.stack.addWidget(self.comparison_panel)
 
     def onImageLoaded(self, image:np.ndarray, name: str):
         self.image = image
@@ -59,23 +81,33 @@ class MainWindow(QMainWindow):
         self.results_panel.cancelled.disconnect()
         self.results_panel.cancelled.connect(self.goToLoad)
         self.results_panel.loadSession(session)
-        self.stack.setCurrentIndex(3)
+        self.stack.setCurrentWidget(self.results_panel)
 
     def goToBc(self):
         if self.image is not None:
             self.bc_panel.defaultCorrection(self.image)
-            self.stack.setCurrentIndex(1)
+            self.stack.setCurrentWidget(self.bc_panel)
 
     def goToLoad(self):
-        self.stack.setCurrentIndex(0)
+        self.stack.setCurrentWidget(self.load_panel)
+    
+    def goToComparison(self):
+        self.stack.setCurrentWidget(self.comparison_panel)
 
     def onCorrectionAccepted(self, corrected: np.ndarray, v_low: int, v_high: int):
         self.corrected_image = corrected
-        self.ising_panel.loadImage(corrected)
-        self.stack.setCurrentIndex(2)
+        if self.load_panel.selected_method=="ICM":
+            self.imc_panel.loadImage(corrected)
+            self.stack.setCurrentWidget(self.imc_panel) 
+        else:
+            self.graph_cuts_panel.loadImage(corrected)
+            self.stack.setCurrentWidget(self.graph_cuts_panel)
 
-    def goToIsing(self):
-        self.stack.setCurrentIndex(2)
+    def goToSegmentation(self):
+        if self.load_panel.selected_method=="ICM":
+            self.stack.setCurrentWidget(self.imc_panel)
+        else:
+            self.stack.setCurrentWidget(self.graph_cuts_panel)
 
     def onSegmentationAccepted(self, ising_container: SegmentationContainer):
         from core.pipeline import PipelineDictator
@@ -91,10 +123,14 @@ class MainWindow(QMainWindow):
         )
         pipeline = PipelineDictator()
         self.results_panel.cancelled.disconnect()
-        self.results_panel.cancelled.connect(self.goToIsing)
+        self.results_panel.cancelled.connect(self.goToSegmentation)
         self.session = pipeline.run_domains(self.session)
         self.results_panel.loadSession(self.session)
-        self.stack.setCurrentIndex(3)
+        self.stack.setCurrentWidget(self.results_panel)
+
+    def goToStart(self):
+        self.stack.setCurrentWidget(self.start_panel)
+    
 
 
 if __name__ == "__main__":

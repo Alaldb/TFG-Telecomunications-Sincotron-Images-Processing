@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import colorsys
 import numpy as np
 from scipy.stats import gaussian_kde
@@ -11,75 +10,96 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QLineEdit,
     QSizePolicy, QMessageBox,
 )
-from PySide6.QtGui import QPixmap, QImage, QIntValidator
+from PySide6.QtGui import QPixmap, QImage, QIntValidator, QDoubleValidator
 from PySide6.QtCore import Qt, Signal, QSize, QThread
 
 from interface.styles import COLORS
-from processing.isingMethodService import Ising
+from processing.graphCutsService import GraphCutsService
 from core.segmentationContainer import SegmentationContainer
 
-
-class IsingWorker(QThread):
+class GraphCutsWorker(QThread):
     finished=Signal(object)
     error=Signal(str)
-
-    def __init__(self, image:np.ndarray, beta: float, max_iterations: int, num_states: int):
+    def __init__(self, image:np.ndarray, num_states:int, lambda_value:float, sigma:float|None, num_iterations:int, number_gaussians_per_state:int):
         super().__init__()
         self.image=image.copy()
-        self.beta=beta
-        self.max_iterations=max_iterations
         self.num_states=num_states
+        self.lambda_value=lambda_value
+        self.sigma=sigma
+        self.num_iterations=num_iterations
+        self.number_gaussians_per_state=number_gaussians_per_state
 
-    def run(self) -> None:
+    def run(self)->None:
         try:
-            ising=Ising(self.beta,self.max_iterations,self.num_states)
-            ising.run(self.image)
-            self.finished.emit(ising.getSegmentationContainer())
+            graph_cut=GraphCutsService(
+                num_states=self.num_states,
+                lambda_value=self.lambda_value,
+                sigma=self.sigma,
+                num_iterations=self.num_iterations,
+                number_gaussians_per_state=self.number_gaussians_per_state
+            )
+            graph_cut.run(self.image)
+            self.finished.emit(graph_cut.getSegmentationContainer())
         except Exception as e:
             self.error.emit(str(e))
-
-class IsingPanel(QWidget):
+    
+class GraphCutsPanel(QWidget):
     segmentation_accepted=Signal(object)
     cancelled=Signal()
+    home=Signal()
 
-    PARAMETERS_INFO={
-        "Beta": (
-            "Spatial regularization parameter.\n\n"
-            "Higher values produce smoother region boundaries "
-            "by increasing neighbour influence.\n"
-            "Typical range: 0.5 – 5."
-        ),
-        "Max Iterations": (
-            "Maximum number of ICM iterations.\n\n"
-            "The algorithm stops earlier if it converges. "
-            "More iterations allow finer refinement at the cost of speed."
-        ),
+    PARAMETERS_INFO = {
         "Num States": (
             "Number of distinct intensity states to segment.\n\n"
             "3 is typical for magnetic domain images: "
             "dark domains, bright domains and intermediate state."
         ),
+        "Lambda": (
+            "Smoothness weight — controls the balance between data fidelity "
+            "and spatial coherence.\n\n"
+            "Higher values produce smoother boundaries by increasing neighbour "
+            "influence. Equivalent to Beta in ICM.\n"
+            "Typical range: 0.01 – 5."
+        ),
+        "Sigma": (
+            "Sensitivity of the N-link weight to intensity differences.\n\n"
+            "Leave empty for automatic estimation from the image.\n"
+            "Lower values detect finer edges; higher values smooth more."
+        ),
+        "Iterations": (
+            "Maximum number of alpha-expansion rounds.\n\n"
+            "-1 runs until convergence (recommended). "
+            "Graph Cuts typically converges in 3-5 rounds."
+        ),
+        "Gaussians": (
+            "Number of Gaussian components per state in the GMM data term.\n\n"
+            "Higher values model complex intensity distributions better "
+            "(useful for non-uniform illumination) at the cost of speed.\n"
+            "Typical range: 1 – 5."
+        ),
     }
 
-    def __init__(self, parent=None)->None:
+    def __init__(self,parent=None)->None:
         super().__init__(parent)
-        self.image: np.ndarray|None=None
-        self.result: np.ndarray|None=None
-        self.parameters: dict={}
-        self.state_colors: dict={}
-        self.sorted_states: list=[]
-        self.active_state: int=-1
-        self.worker: IsingWorker|None=None
-        self.beta: float=2.0
-        self.max_iterations: int=10
-        self.num_states: int=3
-        self.container: SegmentationContainer|None=None
+        self.image:np.ndarray|None=None
+        self.result:np.ndarray|None=None
+        self.parameters:dict={}
+        self.state_colors:dict={}
+        self.sorted_states:list=[]
+        self.active_state:int=-1
+        self.worker:GraphCutsWorker|None=None
+        self.container:SegmentationContainer|None=None
+        self.num_states:int=3
+        self.lambda_value:float=1
+        self.sigma:float|None=None
+        self.num_iterations:int=-1
+        self.number_gaussians_per_state:int=3
         self.buildUi()
 
     def loadImage(self, image:np.ndarray)->None:
         self.image=image
         self.updateOriginalView()
-        self.runIsing()
+        self.runGraphCuts()
     
     def buildUi(self)->None:
         base_layout=QVBoxLayout(self)
@@ -152,24 +172,32 @@ class IsingPanel(QWidget):
         right_layout.setContentsMargins(12,16,12,16)
         right_layout.setSpacing(10)
 
-        title_lbl=QLabel("Ising Parameters")
+        title_lbl=QLabel("GraphCut Parameters")
         title_lbl.setStyleSheet(
             f"font-size: 13px; font-weight: bold; color: {COLORS['text']}; border: none;"
         )
 
-        self.beta_input=QLineEdit(str(self.beta))
-        self.beta_input.setFixedWidth(55)
+        self.lambda_input=QLineEdit(str(self.lambda_value))
+        self.lambda_input.setFixedWidth(55)
 
-        self.iterations_input=QLineEdit(str(self.max_iterations))
+        self.sigma_input=QLineEdit("")
+        self.sigma_input.setPlaceholderText("auto")
+        self.sigma_input.setFixedWidth(55)
+
+        self.iterations_input=QLineEdit(str(self.num_iterations))
         self.iterations_input.setFixedWidth(55)
-        self.iterations_input.setValidator(QIntValidator(1,200))
+        self.iterations_input.setValidator(QIntValidator(-1,200))
 
-        self.states_input = QLineEdit(str(self.num_states))
+        self.gaussians_input=QLineEdit(str(self.number_gaussians_per_state))
+        self.gaussians_input.setFixedWidth(55)
+        self.gaussians_input.setValidator(QIntValidator(1, 10))
+
+        self.states_input=QLineEdit(str(self.num_states))
         self.states_input.setFixedWidth(55)
         self.states_input.setValidator(QIntValidator(2, 8))
 
         self.run_but=QPushButton("Run")
-        self.run_but.clicked.connect(self.runIsing)
+        self.run_but.clicked.connect(self.runGraphCuts)
 
         separator=QFrame()
         separator.setFrameShape(QFrame.HLine)
@@ -179,15 +207,17 @@ class IsingPanel(QWidget):
         self.buts_lbl.setStyleSheet(
             f"font-size: 11px; font-weight: bold; color: {COLORS['text_secondary']}; border: none;"
         )
-        self.buts_widget = QWidget()
-        self.buts_layout = QVBoxLayout(self.buts_widget)
+        self.buts_widget=QWidget()
+        self.buts_layout=QVBoxLayout(self.buts_widget)
         self.buts_layout.setContentsMargins(0, 0, 0, 0)
         self.buts_layout.setSpacing(5)
 
         right_layout.addWidget(title_lbl)
-        right_layout.addLayout(self.buildParamRow("Beta", self.beta_input))
-        right_layout.addLayout(self.buildParamRow("Max Iterations", self.iterations_input))
-        right_layout.addLayout(self.buildParamRow("Num States", self.states_input))
+        right_layout.addLayout(self.buildParamRow("Num States",self.states_input))
+        right_layout.addLayout(self.buildParamRow("Lambda",self.lambda_input))
+        right_layout.addLayout(self.buildParamRow("Sigma",self.sigma_input))
+        right_layout.addLayout(self.buildParamRow("Iterations",self.iterations_input))
+        right_layout.addLayout(self.buildParamRow("Gaussians",self.gaussians_input))
         right_layout.addWidget(self.run_but)
         right_layout.addWidget(separator)
         right_layout.addWidget(self.buts_lbl)
@@ -305,7 +335,12 @@ class IsingPanel(QWidget):
         row=QHBoxLayout()
         row.addStretch()
 
-        self.cancel_but=QPushButton("Cancel")
+        self.home_but=QPushButton("Home")
+        self.home_but.setObjectName("cancel_btn")
+        self.home_but.setFixedWidth(100)
+        self.home_but.clicked.connect(self.home)
+
+        self.cancel_but=QPushButton("<- Back")
         self.cancel_but.setObjectName("cancel_btn")
         self.cancel_but.setFixedWidth(100)
         self.cancel_but.clicked.connect(self.cancelled)
@@ -315,23 +350,29 @@ class IsingPanel(QWidget):
         self.next_but.setEnabled(False)
         self.next_but.clicked.connect(self.onNextClicked)
 
+        row.addWidget(self.home_but)
+        row.addSpacing(8)
         row.addWidget(self.cancel_but)
         row.addSpacing(8)
         row.addWidget(self.next_but)
         return row
     
-    def runIsing(self)->None:
+    def runGraphCuts(self)->None:
         if self.image is None:
             return
-        self.beta=self.readBeta()
-        self.max_iterations=self.readMaxIter()
         self.num_states=self.readNumStates()
+        self.lambda_value=self.readLambda()
+        self.sigma=self.readSigma()
+        self.num_iterations=self.readIterations()
+        self.number_gaussians_per_state=self.readGaussians()
 
         self.run_but.setEnabled(False)
         self.run_but.setText("Running...")
         self.next_but.setEnabled(False)
 
-        self.worker=IsingWorker(self.image,self.beta,self.max_iterations,self.num_states)
+        self.worker=GraphCutsWorker(
+            self.image,self.num_states,self.lambda_value,self.sigma,self.num_iterations,self.number_gaussians_per_state
+        )
         self.worker.finished.connect(self.onIsingFinished)
         self.worker.error.connect(self.onIsingError)
         self.worker.start()
@@ -497,17 +538,32 @@ class IsingPanel(QWidget):
             row_layout.addStretch()
             self.legend_layout.addWidget(row_widget)
 
-    def readBeta(self)->float:
+    def readLambda(self) -> float:
         try:
-            return max(0.0, float(self.beta_input.text().replace(',', '.')))
+            return max(0.0, float(self.lambda_input.text().replace(',', '.')))
         except ValueError:
-            return self.beta
+            return self.lambda_value
 
-    def readMaxIter(self) -> int:
+    def readSigma(self) -> float | None:
+        text = self.sigma_input.text().strip()
+        if not text:
+            return None
         try:
-            return max(1, min(200, int(self.iterations_input.text())))
+            return max(0.0, float(text.replace(',', '.')))
         except ValueError:
-            return self.max_iterations
+            return None
+
+    def readIterations(self) -> int:
+        try:
+            return int(self.iterations_input.text())
+        except ValueError:
+            return self.num_iterations
+
+    def readGaussians(self) -> int:
+        try:
+            return max(1, min(10, int(self.gaussians_input.text())))
+        except ValueError:
+            return self.number_gaussians_per_state
         
     def readNumStates(self) -> int:
         try:
@@ -529,5 +585,3 @@ class IsingPanel(QWidget):
         super().showEvent(event)
         self.updateOriginalView()
         self.updateStateView(self.active_state)
-
-

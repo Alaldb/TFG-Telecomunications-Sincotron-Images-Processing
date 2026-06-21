@@ -5,6 +5,7 @@ from sklearn.mixture import GaussianMixture
 import cv2
 import gco
 import tifffile
+from core.segmentationContainer import SegmentationContainer,SegmentationMethod
 
 class GraphCutsService:
     def __init__(self,  num_states: int=3, 
@@ -23,6 +24,7 @@ class GraphCutsService:
         self.mask=self.create_mask()
         self.initial_labels=self.initialize_model()
         self.final_image=self.apply_graph_cuts()
+        self.parameters=self.calculate_parameters()
     
     def search_circles(self):
         img = cv2.normalize(self.original_image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)#type: ignore
@@ -135,6 +137,40 @@ class GraphCutsService:
         final=result.reshape(self.original_image.shape).astype(np.int32)
         final[~self.mask]=-1
         return final
+    
+
+    #con este metodo homogeneizamos con ICM y volvemos el cálculo de los estados una caja negra
+    def calculate_parameters(self)->dict:
+        parameters={}
+        for state in range(self.num_states):
+            pixel_intensities=self.original_image[(self.final_image==state)&self.mask]
+            if len(pixel_intensities)>0:
+                parameters[state]={
+                    'mean': float(np.mean(pixel_intensities)),
+                    'std': float(np.std(pixel_intensities))+1e-6
+                }
+            else:
+                parameters[state]={'mean':0,'std':0}
+        return parameters
+    
+    def getSegmentationContainer(self)->SegmentationContainer:
+        return SegmentationContainer(
+            original_image=self.original_image,
+            mask=self.mask,
+            final_image=self.final_image,
+            num_states=self.num_states,
+            parameters=self.parameters,
+            initial_labels=self.initial_labels,
+            method=SegmentationMethod.GRAPH_CUTS,
+            method_configuration={
+                "lambda_value":               self.lambda_value,
+                "sigma":                      self.sigma,
+                "num_iterations":             self.num_iterations,
+                "number_gaussians_per_state": self.number_gaussians_per_state
+            }
+        )
+    
+    
 
 IMAGE_PATH = r"C:\Users\user\Desktop\034_XMCD_Ni_120rot_FOV20_+-500mA__corrected.tif"
 #r"C:\Users\user\Desktop\009_XMCD_Ni_corrected.tif"

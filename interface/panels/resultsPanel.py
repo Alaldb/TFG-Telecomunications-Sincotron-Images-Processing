@@ -17,7 +17,7 @@ from interface.styles import COLORS
 from core.session import Session
 from processing.domainService import DomainService
 from stats.domainStats import computeDomainStats
-from persistence.session_io import saveSession,exportCorrectedImage
+from persistence.session_io import saveSession,exportCorrectedImage,exportDataExcel
 class DomainsWorker(QThread):
     finished=Signal(object)
     error=Signal(str)
@@ -39,6 +39,7 @@ class ResultsPanel(QWidget):
     save_requested=Signal(object)
     export_requested=Signal(object)
     cancelled=Signal()
+    home=Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -241,7 +242,12 @@ class ResultsPanel(QWidget):
 
         row_layout.addStretch()
 
-        self.cancel_but=QPushButton("Cancelar")
+        self.home_but=QPushButton("Home")
+        self.home_but.setObjectName("cancel_btn")
+        self.home_but.setFixedWidth(100)
+        self.home_but.clicked.connect(self.home)
+
+        self.cancel_but=QPushButton("<- Back")
         self.cancel_but.setObjectName("cancel_btn")
         self.cancel_but.setFixedWidth(100)
         self.cancel_but.clicked.connect(self.cancelled)
@@ -250,13 +256,21 @@ class ResultsPanel(QWidget):
         self.export_but.setFixedWidth(180)
         self.export_but.clicked.connect(self.onExportClicked)
 
+        self.exportmetric_but=QPushButton("Export Metrics")
+        self.exportmetric_but.setFixedWidth(180)
+        self.exportmetric_but.clicked.connect(self.onExcelClicked)
+
         self.save_but=QPushButton("Save")
         self.save_but.setFixedWidth(100)
         self.save_but.clicked.connect(self.onSaveClicked)
 
+        row_layout.addWidget(self.home_but)
+        row_layout.addSpacing(8)
         row_layout.addWidget(self.cancel_but)
         row_layout.addSpacing(8)
         row_layout.addWidget(self.export_but)
+        row_layout.addSpacing(8)
+        row_layout.addWidget(self.exportmetric_but)
         row_layout.addSpacing(8)
         row_layout.addWidget(self.save_but)
         return row_layout
@@ -447,6 +461,24 @@ class ResultsPanel(QWidget):
             QMessageBox.information(self, "Image Exported", f"Corrected image exported successfully to {path}")
         except Exception as e:
             QMessageBox.critical(self, "Error Exporting Image", f"An error occurred while exporting the image:\n{str(e)}")
+        
+    def onExcelClicked(self)->None:
+        if self.session is None:
+            QMessageBox.warning(self, "No Data", "There is no data to export.")
+            return
+        path, _=QFileDialog.getSaveFileName(
+            self,
+            "Export Corrected Image",
+            f"{self.session.image_name}_metrics.xlsx",
+            "XLSX Files (*.xlsx)"
+        )
+        if not path:
+            return
+        try:
+            exportDataExcel(self.session, path, self.min_area)
+            QMessageBox.information(self, "Data Exported", f"Metrics exported successfully to {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error Exporting Metrics", f"An error occurred while exporting the metrics of the session:\n{str(e)}")
 
     def highlightTab(self,active_key: int|str)->None:
         for key, but in self.state_tabs.items():
@@ -534,9 +566,15 @@ class ResultsPanel(QWidget):
             self.canvas.draw()
             return
         if self.active_state is None:
+            if self.session.segmentation_container is not None: #In case is a loaded session
+                sort_key = lambda state: self.session.segmentation_container.parameters[state]['mean']
+            elif self.session.ising_stats: #Normal pipeline
+                sort_key = lambda state: self.session.ising_stats.get(state, {}).get('mean', state)
+            else:
+                sort_key = lambda state: state
             sorted_states=sorted(
                 self.session.domain_stats.keys(),
-                key=lambda s: self.session.segmentation_container.parameters[s]['mean']
+                key=sort_key
             )
             n=len(sorted_states)
             for i,state in enumerate(sorted_states):
@@ -549,12 +587,13 @@ class ResultsPanel(QWidget):
                 hue=240-int(i*240/max(n-1,1))
                 r,g,b=colorsys.hsv_to_rgb(hue/360, 0.85, 1.0)
                 color=(r,g,b)
+                # FIXME: 
                 self.ax.hist(
                     values,
-                    bins=min(30,len(values)),#mejorar con reglas euristicas para elegir el bins sturges, scott, freedman-diaconis, numero de puntos
+                    bins='auto', #Freedman-Diaconis si hay muchos puntos Sturges si hay pocos
                     color=color,
                     alpha=0.6,
-                    linewidth=0,
+                    linewidth=1,# TODO: Mirar separ boxes
                     label=f"Estado {state+1}"
                 )
         else:
