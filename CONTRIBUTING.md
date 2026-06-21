@@ -977,5 +977,3 @@ viewer.setData(rgb_image, labeled_image, domain_stats)
 | Full session | `.session` | "Save" button in `ResultsPanel` |
 | Corrected image | `.tif` | "Export Corrected Image" button in `ResultsPanel` |
 | Domain metrics | `.xlsx` (one sheet per state) | "Export Metrics" button in `ResultsPanel` |
-
-## 11. A a A
