@@ -1,5 +1,11 @@
 # Domain Analysis Tool — Developer Guide
 
+**[Español](#español) | [English](#english)**
+
+---
+
+## Español
+
 ## Índice
 
 1. [¿Qué es y qué busca?](#1-qué-es-y-qué-busca)
@@ -483,3 +489,493 @@ viewer.setData(rgb_image, labeled_image, domain_stats)
 | Sesión completa | `.session` | Botón "Save" en `ResultsPanel` |
 | Imagen corregida | `.tif` | Botón "Export Corrected Image" en `ResultsPanel` |
 | Métricas de dominios | `.xlsx` (una hoja por estado) | Botón "Export Metrics" en `ResultsPanel` |
+
+---
+
+## English
+
+## Table of Contents
+
+1. [What is it and what does it aim for?](#1-what-is-it-and-what-does-it-aim-for)
+2. [Architecture and data flow](#2-architecture-and-data-flow)
+3. [Libraries and their purpose](#3-libraries-and-their-purpose)
+4. [Directory structure](#4-directory-structure)
+5. [How to add new functionality](#5-how-to-add-new-functionality)
+6. [Current services](#6-current-services)
+7. [Current panels](#7-current-panels)
+8. [Data containers and persistence](#8-data-containers-and-persistence)
+9. [Special widgets](#9-special-widgets)
+10. [Inputs and outputs](#10-inputs-and-outputs)
+
+---
+
+## 1. What is it and what does it aim for?
+
+Domain Analysis Tool is a desktop application for the quantitative analysis of scientific microscopy images, focused on the study of magnetic domains in XMCD images. The goal is to provide a tool that segments an image into intensity states, individually identifies and labels each domain within each state, and computes geometric metrics per domain.
+
+**Design principles:**
+
+- **Modularity** — each responsibility is isolated in its own module. Processing services do not know about the interface; panels do not know about the algorithms.
+- **Extensibility** — adding a new segmentation method, a new metric, or a new panel should not require touching existing code beyond the integration point.
+- **Layer separation** — processing, interface, persistence and statistics are independent layers that communicate through well-defined data containers (`Session`, `SegmentationContainer`).
+
+---
+
+## 2. Architecture and data flow
+
+```
+.tif image
+    │
+    ▼
+Corrector                  ← processing/corrector.py
+    │  (corrected_image: np.ndarray)
+    ▼
+Segmentation
+    ├── Ising (ICM)         ← processing/isingMethodService.py
+    └── GraphCutsService    ← processing/graphCutsService.py
+    │  (SegmentationContainer)
+    ▼
+DomainService              ← processing/domainService.py
+    │  (labeled_images, colored_images, domain_data)
+    ▼
+computeDomainStats         ← stats/domainStats.py
+    │  (domain_stats: {state: {domain_id: {metric: value}}})
+    ▼
+Session                    ← core/session.py
+    │  (container holding the full analysis)
+    ▼
+ResultsPanel               ← interface/panels/resultsPanel.py
+    ├── DomainExplorerWindow
+    └── Export (.session / .tif / .xlsx)
+```
+
+`Session` is the central object. It is built in `MainWindow` once segmentation is complete and passed between panels. Everything a panel needs is inside `Session`; panels do not call processing services directly (except `ResultsPanel`, which launches `DomainsWorker` in the background if the session was loaded from disk without pre-computed `domain_data`).
+
+---
+
+## 3. Libraries and their purpose
+
+| Library | Use in the project |
+|---|---|
+| **PySide6** | GUI framework. All panels, windows and widgets inherit from Qt classes. |
+| **numpy** | Image array operations (2D pixel matrices, masks, RGB images). Foundation of all processing. |
+| **opencv-python** | Reading `.tif` images, normalization, circle detection (Hough), Gaussian blur for illumination correction. |
+| **scikit-image** | `regionprops` for computing geometric metrics per domain; `label` for labeling connected regions. |
+| **scikit-learn** | KMeans for Ising model initialization; GaussianMixture (GMM) for the data term in Graph Cuts. |
+| **scipy** | `gaussian_kde` for the density curve in segmentation histograms. |
+| **matplotlib** | Rendering histograms embedded in panels (via `FigureCanvasQTAgg`). |
+| **openpyxl** | Writing `.xlsx` files for metrics export. |
+| **seaborn** | Auxiliary statistical visualizations (used in exploration, not in the production interface). |
+| **tifffile** | Reading TIFF images with greater fidelity than OpenCV for scientific multi-channel or high bit-depth formats. |
+| **gco-wrapper** | Efficient Graph Cuts implementation (alpha-expansion) for graph-based segmentation. |
+
+---
+
+## 4. Directory structure
+
+```
+New_Tool/
+│
+├── main.py                        # Entry point
+│
+├── core/                          # Central data structures
+│   ├── session.py                 # Session dataclass
+│   ├── segmentationContainer.py   # SegmentationContainer dataclass + SegmentationMethod enum
+│   └── pipeline.py                # PipelineDictator: headless orchestrator of the full flow
+│
+├── processing/                    # Processing services (no UI dependencies)
+│   ├── corrector.py               # Illumination correction, stretching, brightness/contrast
+│   ├── isingMethodService.py      # ICM segmentation (Ising model)
+│   ├── graphCutsService.py        # Graph Cuts segmentation
+│   └── domainService.py           # Domain labeling and per-domain data extraction
+│
+├── stats/                         # Metric computation
+│   └── domainStats.py             # computeDomainStats: area, perimeter, roughness
+│
+├── persistence/                   # File reading and writing
+│   └── session_io.py              # saveSession, loadSession, exportCorrectedImage, exportDataExcel
+│
+├── interface/                     # GUI layer
+│   ├── styles.py                  # Color palette and global stylesheet
+│   ├── mainWindow.py              # QMainWindow: panel orchestrator
+│   │
+│   ├── panels/                    # One file per screen/panel
+│   │   ├── startPanel.py
+│   │   ├── loadPanel.py
+│   │   ├── bcPanel.py
+│   │   ├── icmPanel.py
+│   │   ├── graphCutsPanel.py
+│   │   ├── resultsPanel.py
+│   │   ├── domainExplorerWindow.py
+│   │   └── domainComparisonPanel.py
+│   │
+│   └── visual_elements/           # Reusable widgets with their own logic
+│       └── domainImageViewer.py
+│
+└── Elements/                      # External resources (fiji paths, temporary images)
+```
+
+**Separation logic:**
+- `processing/` never imports from `interface/`. Services receive and return pure data (numpy arrays, dataclasses).
+- `interface/` never implements processing logic. Panels call services and display results.
+- `core/` defines structures shared across layers.
+- `stats/` is independent: it receives labeled arrays and returns metric dictionaries.
+- `persistence/` only reads and writes. It does not transform data.
+
+---
+
+## 5. How to add new functionality
+
+### General service structure
+
+A service in `processing/` is a class that receives data in the constructor or a `run()` method and exposes results via `get_data()` or `getContainer()`.
+
+```python
+# processing/myService.py
+import numpy as np
+from core.segmentationContainer import SegmentationContainer
+
+class MyService:
+    def __init__(self, param1: float, param2: int):
+        self.param1 = param1
+        self.param2 = param2
+
+    def run(self, image: np.ndarray) -> None:
+        # processing
+        self.result = ...
+
+    def getSegmentationContainer(self) -> SegmentationContainer:
+        return SegmentationContainer(
+            original_image=...,
+            mask=...,
+            final_image=self.result,
+            num_states=...,
+            parameters=...,
+            initial_labels=...,
+            method=SegmentationMethod.MY_METHOD,
+        )
+```
+
+If the method is a new segmentation type, add its entry to the `SegmentationMethod` enum in `core/segmentationContainer.py`:
+
+```python
+class SegmentationMethod(Enum):
+    ICM = "ICM"
+    GRAPH_CUTS = "GraphCuts"
+    MY_METHOD = "MyMethod"   # new
+```
+
+### General panel structure
+
+A panel is a `QWidget` that:
+- Emits signals to communicate with `MainWindow` (never calls other panels directly).
+- Contains a `QThread` worker if it launches heavy processing in the background.
+- Separates UI construction (`buildUi`) from data logic (`loadData`, `onWorkerFinished`).
+
+```python
+# interface/panels/myPanel.py
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton
+from PySide6.QtCore import Signal
+
+class MyPanel(QWidget):
+    result_accepted = Signal(object)   # emits result to MainWindow
+    cancelled = Signal()
+    home = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.buildUi()
+
+    def buildUi(self):
+        layout = QVBoxLayout(self)
+        self.run_but = QPushButton("Run")
+        self.run_but.clicked.connect(self.onRunClicked)
+        layout.addWidget(self.run_but)
+
+    def loadData(self, data):
+        # receives data from MainWindow and prepares the panel
+        self.data = data
+
+    def onRunClicked(self):
+        # launches processing and emits signal with result
+        result = ...
+        self.result_accepted.emit(result)
+```
+
+If processing is expensive, use a worker:
+
+```python
+from PySide6.QtCore import QThread, Signal
+
+class MyWorker(QThread):
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(self, data):
+        super().__init__()
+        self.data = data
+
+    def run(self):
+        try:
+            result = MyService().run(self.data)
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+```
+
+### Integrating the new panel in MainWindow
+
+`MainWindow` uses a `QStackedWidget` to manage screens. To add a new panel:
+
+```python
+# interface/mainWindow.py
+
+# 1. Import
+from interface.panels.myPanel import MyPanel
+
+# 2. In buildUi(), instantiate and connect signals
+self.my_panel = MyPanel()
+self.my_panel.result_accepted.connect(self.onMyResult)
+self.my_panel.cancelled.connect(self.goToStart)
+self.my_panel.home.connect(self.goToStart)
+self.stack.addWidget(self.my_panel)
+
+# 3. Navigation methods
+def goToMyPanel(self):
+    self.my_panel.loadData(self.required_data)
+    self.stack.setCurrentWidget(self.my_panel)
+
+def onMyResult(self, result):
+    # store result in self.session and navigate to the next step
+    self.session.my_data = result
+    self.goToResults()
+```
+
+---
+
+## 6. Current services
+
+### `Corrector` — `processing/corrector.py`
+
+Image correction in four chained steps:
+
+1. **`create_mask`** — detects the circular region of interest via `HoughCircles`. If no circle is detected, the mask covers the whole image.
+2. **`correct_illumination`** — corrects illumination gradients by subtracting a background estimated with Gaussian blur.
+3. **`linear_stretch`** — stretches the histogram to [0, 255] between `v_low` and `v_high`.
+4. **`adjust_brightness_contrast`** — applies a brightness offset and a contrast factor.
+
+The main method is `apply_correction`, which chains all steps. Individual steps are public and can be called separately.
+
+---
+
+### `Ising` — `processing/isingMethodService.py`
+
+Bayesian segmentation using the Ising model with ICM (Iterated Conditional Modes) optimization:
+
+1. **Initialization** with KMeans (`n_clusters = num_states`) over the pixels inside the mask.
+2. **ICM** — each iteration minimizes per-pixel energy: `E = statistical_energy + neighborhood_energy`. Statistical energy measures the distance of each pixel to the mean of each state (Gaussian distribution); neighborhood energy encourages adjacent pixels to share the same state (controlled by `beta`).
+3. **Convergence** — the algorithm stops when no pixel changes state or `max_iterations` is reached.
+
+Exposes `getSegmentationContainer()` to build the standard container.
+
+---
+
+### `GraphCutsService` — `processing/graphCutsService.py`
+
+Graph Cuts segmentation with alpha-expansion:
+
+1. **GMM** — models the intensity distribution of each state with a mixture of Gaussians (`GaussianMixture`, `number_gaussians_per_state` components).
+2. **Data term** — negative log-probability of each pixel under each state according to the GMM.
+3. **Smoothness term (N-link)** — penalizes adjacent pixels with different states, weighted by `lambda` and the intensity difference (controlled by `sigma`).
+4. **Alpha-expansion** — global energy minimization via `gco-wrapper`.
+
+Exposes `getSegmentationContainer()` with the same contract as `Ising`.
+
+---
+
+### `DomainService` — `processing/domainService.py`
+
+Starting from a `SegmentationContainer`, extracts individual domains:
+
+1. **`extract_state_images`** — generates a binary image per state (1 inside the state and inside the mask, 0 outside).
+2. **`label_domains`** — applies `skimage.measure.label` with 8-connectivity to label connected regions. Each domain receives a unique id per state.
+3. **`color_domains`** — assigns a random color to each domain for visualization.
+4. **`extract_domain_data`** — extracts coordinates and intensity values per domain.
+
+The `get_data()` method returns a dictionary with all these structures.
+
+---
+
+### `computeDomainStats` — `stats/domainStats.py`
+
+Computes geometric metrics for each domain using `skimage.measure.regionprops`. Iterates over labeled images and builds the structure:
+
+```
+{ state: { domain_id: { "area": float, "perimeter": float, "roughness": float } } }
+```
+
+Each metric function is independent and receives the `regionprops` `domain` object. See the "How to add a new metric" section in the user README.
+
+---
+
+## 7. Current panels
+
+### `StartPanel` — `interface/panels/startPanel.py`
+
+Start screen. Emits `analyse_requested` to go to the analysis flow or `compare_requested` to go to session comparison.
+
+---
+
+### `LoadPanel` — `interface/panels/loadPanel.py`
+
+Loads a `.tif` image with OpenCV or a `.session` file via `loadSession`. Allows selecting the segmentation method (ICM / Graph Cuts) before continuing. Emits `image_loaded(np.ndarray, str)` or `session_loaded(Session)`.
+
+---
+
+### `BcPanel` — `interface/panels/bcPanel.py`
+
+Brightness and contrast correction with real-time preview. Calls `Corrector` directly without a worker (correction is fast). Emits `correction_accepted(np.ndarray, int, int)` with the corrected image and v_low / v_high values.
+
+---
+
+### `IsingPanel` — `interface/panels/icmPanel.py`
+
+ICM segmentation. Launches `IsingWorker` (QThread) with the configured parameters. Displays the original image, the view for the selected state, the intensity histogram, and the state distribution legend. Emits `segmentation_accepted(SegmentationContainer)`.
+
+---
+
+### `GraphCutsPanel` — `interface/panels/graphCutsPanel.py`
+
+Graph Cuts segmentation. Same visual structure as `IsingPanel` with its own parameters (Lambda, Sigma, Gaussians, Iterations). Launches `GraphCutsWorker`. Emits `segmentation_accepted(SegmentationContainer)`.
+
+---
+
+### `ResultsPanel` — `interface/panels/resultsPanel.py`
+
+Main results panel. Receives a `Session` and displays:
+- Original image and colored domain view.
+- Histogram of the active metric per state.
+- State tabs and metric buttons.
+- Area filter and histogram range controls.
+
+If the session has a `segmentation_container` but no `domain_stats`, it launches `DomainsWorker` in the background to compute them. From here, `DomainExplorerWindow` is opened and exports are accessed.
+
+---
+
+### `DomainExplorerWindow` — `interface/panels/domainExplorerWindow.py`
+
+Auxiliary window (`QDialog`) for inspecting domains individually. Uses `DomainImageViewer` for the interactive image and a `QTableWidget` to display the selected domain's metrics alongside the state mean and global mean, with the deviation percentage.
+
+---
+
+### `DomainComparisonPanel` — `interface/panels/domainComparisonPanel.py`
+
+Allows loading two `.session` files and comparing their metrics side by side.
+
+---
+
+## 8. Data containers and persistence
+
+### `SegmentationContainer` — `core/segmentationContainer.py`
+
+Dataclass that encapsulates the result of any segmentation method:
+
+```python
+@dataclass
+class SegmentationContainer:
+    original_image: np.ndarray      # normalized input image
+    mask: np.ndarray                # boolean mask of the region of interest
+    final_image: np.ndarray         # segmented image (values 0..num_states-1)
+    num_states: int                 # number of states
+    parameters: dict                # {state: {"mean": float, "std": float}}
+    initial_labels: np.ndarray      # initial labels (before optimization)
+    method: SegmentationMethod      # ICM or GRAPH_CUTS
+    method_configuration: dict      # parameters used (beta, lambda, etc.)
+```
+
+It is the contract between segmentation services and the rest of the system. `DomainService` consumes it directly.
+
+---
+
+### `Session` — `core/session.py`
+
+Central dataclass that accumulates the full analysis state:
+
+```python
+@dataclass
+class Session:
+    image_name: str
+    original_image: np.ndarray | None
+    corrected_image: np.ndarray | None
+    ising_result: np.ndarray | None
+    domain_data: dict                   # output of DomainService.get_data()
+    parameters: dict                    # configuration used
+    ising_stats: dict                   # statistical parameters per state
+    domain_stats: dict                  # {state: {domain_id: {metric: value}}}
+    timestamp: str
+    segmentation_container: SegmentationContainer | None
+    segmentation_method: SegmentationMethod | None
+```
+
+Built in `MainWindow.onSegmentationAccepted` and passed to `ResultsPanel`. When loading a saved session, it is reconstructed from disk.
+
+---
+
+### Persistence — `persistence/session_io.py`
+
+A session is saved as a `.session` file, which is a ZIP with two entries:
+- `session.json` — serializable data (image_name, timestamp, parameters, domain_stats...).
+- `arrays.npz` — numpy arrays (original_image, corrected_image, ising_result, labeled_images per state).
+
+Integer dictionary keys are converted to strings before serialization (`keysToStr`) and restored on load (`strKeysToInt`), since JSON does not support non-string keys.
+
+**Available functions:**
+
+| Function | Description |
+|---|---|
+| `saveSession(session, path)` | Saves the full session to `.session` |
+| `loadSession(path)` | Loads and reconstructs a `Session` from disk |
+| `exportCorrectedImage(session, path)` | Writes the corrected image as `.tif` using OpenCV |
+| `exportDataExcel(session, path, min_area)` | Exports metrics to `.xlsx`, one sheet per state, filtered by area |
+
+---
+
+## 9. Special widgets
+
+### `DomainImageViewer` — `interface/visual_elements/domainImageViewer.py`
+
+Extended `QLabel` that adds click interactivity over domains. Internally holds the colored RGB image and the labeled image (`labeled_image`) as separate arrays.
+
+**Behavior:**
+- On click, converts widget coordinates to image coordinates (correcting for offset and the `KeepAspectRatio` scale factor).
+- Looks up `labeled_image` at that position to get the `domain_id`.
+- Dims all domains except the selected one (pixel multiplication by 0.25 on non-selected pixels).
+- Emits `domain_clicked(domain_id: int, metrics: dict)`.
+
+**API:**
+```python
+viewer = DomainImageViewer()
+viewer.domain_clicked.connect(my_slot)
+viewer.setData(rgb_image, labeled_image, domain_stats)
+```
+
+---
+
+## 10. Inputs and outputs
+
+### Inputs
+
+| Type | Format | Where it is used |
+|---|---|---|
+| Scientific image | `.tif`, `.tiff` (grayscale, any bit depth) | `LoadPanel` → `Corrector` |
+| Saved session | `.session` (ZIP with JSON + NPZ) | `LoadPanel` → `loadSession` |
+
+### Outputs
+
+| Type | Format | How to generate it |
+|---|---|---|
+| Full session | `.session` | "Save" button in `ResultsPanel` |
+| Corrected image | `.tif` | "Export Corrected Image" button in `ResultsPanel` |
+| Domain metrics | `.xlsx` (one sheet per state) | "Export Metrics" button in `ResultsPanel` |
+
+## 11. A a A
