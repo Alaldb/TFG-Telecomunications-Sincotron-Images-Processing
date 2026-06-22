@@ -122,7 +122,7 @@ Las métricas se calculan automáticamente para cada dominio usando `skimage.mea
 | High intensity end | 0 – 255 | Valor máximo del rango de intensidad. Los píxeles por encima se recortan a blanco. |
 | Brightness | -127&nbsp;–&nbsp;127 | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
 | Contrast | ≥ 0.1 | Factor multiplicativo sobre la imagen. 1.0 no aplica cambio. Usar `.` como separador decimal. |
-| Crop borders | 0–&nbsp;100&nbsp;px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
+| Crop borders | 0&nbsp;–&nbsp;100&nbsp;px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
 
 #### Segmentación — ICM
 
@@ -297,9 +297,9 @@ Metrics are computed automatically for each domain using `skimage.measure.region
 |---|---|---|
 | Low intensity end | 0 – 255 | Minimum intensity value. Pixels below this are clipped to black. |
 | High intensity end | 0 – 255 | Maximum intensity value. Pixels above this are clipped to white. |
-| Brightness | -127&nbsp;–&nbsp127; | Additive offset applied to all pixels. 0 means no change. |
+| Brightness | -127&nbsp;–&nbsp;127 | Additive offset applied to all pixels. 0 means no change. |
 | Contrast | ≥ 0.1 | Multiplicative factor applied to the image. 1.0 means no change. Use `.` as decimal separator. |
-| Crop borders | 0&nbsp;–&nbsp;100&nbs;ppx | Removes N pixels from each border before processing. Useful when borders introduce segmentation artifacts. |
+| Crop borders | 0&nbsp;–&nbsp;100&nbsp;px | Removes N pixels from each border before processing. Useful when borders introduce segmentation artifacts. |
 
 #### Segmentation — ICM
 
