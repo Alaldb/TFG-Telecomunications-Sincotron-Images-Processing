@@ -34,8 +34,8 @@ dAT\Scripts\activate           # Windows
 
 **Opción B — Anaconda / Miniconda**
 ```bash
-conda create -n domain-analysis python=3.12
-conda activate domain-analysis
+conda create -n dAT python=3.12
+conda activate dAT
 ```
 
 3. Instala las dependencias:
@@ -120,16 +120,16 @@ Las métricas se calculan automáticamente para cada dominio usando `skimage.mea
 |---|---|---|
 | Low intensity end | 0 – 255 | Valor mínimo del rango de intensidad. Los píxeles por debajo de este valor se recortan a negro. |
 | High intensity end | 0 – 255 | Valor máximo del rango de intensidad. Los píxeles por encima se recortan a blanco. |
-| Brightness | -127 – 127 | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
+| Brightness | -127&nbsp;–&nbsp;127 | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
 | Contrast | ≥ 0.1 | Factor multiplicativo sobre la imagen. 1.0 no aplica cambio. Usar `.` como separador decimal. |
-| Crop borders | 0 – 100 px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
+| Crop borders | 0 – 100&nbsp;px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
 
 #### Segmentación — ICM
 
 | Parámetro | Rango | Descripción |
 |---|---|---|
 | Beta | ≥ 0.0 | Regularización espacial. Valores más altos producen bordes más suaves entre estados. Rango típico: 0.5 – 5. |
-| Max Iterations | 1 – 200 | Número máximo de iteraciones. El algoritmo para antes si converge. |
+| Max Iterations | 1&nbsp;–&nbsp;200 | Número máximo de iteraciones. El algoritmo para antes si converge. |
 | Num States | 2 – 8 | Número de estados de intensidad a segmentar. 3 es el valor habitual para imágenes de dominios magnéticos. |
 
 #### Segmentación — Graph Cuts
@@ -139,7 +139,7 @@ Las métricas se calculan automáticamente para cada dominio usando `skimage.mea
 | Num States | 2 – 8 | Número de estados de intensidad a segmentar. |
 | Lambda | ≥ 0.0 | Peso de suavizado espacial. Equivalente al Beta del ICM. Rango típico: 0.01 – 5. |
 | Sigma | ≥ 0.0 o vacío | Sensibilidad del N-link a diferencias de intensidad. Vacío = estimación automática. Valores menores detectan bordes más finos. |
-| Iterations | -1 – 200 | Número máximo de rondas de alpha-expansion. -1 ejecuta hasta convergencia (recomendado). |
+| Iterations | -1&nbsp;–&nbsp;200 | Número máximo de rondas de alpha-expansion. -1 ejecuta hasta convergencia (recomendado). |
 | Gaussians | 1 – 10 | Componentes Gaussianas por estado en el modelo GMM. Valores más altos modelan distribuciones complejas a costa de velocidad. |
 
 #### Panel de resultados
