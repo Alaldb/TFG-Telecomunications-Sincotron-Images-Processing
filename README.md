@@ -12,23 +12,38 @@ Domain Analysis Tool es una aplicación de escritorio para el análisis de imág
 
 ### Requisitos
 
-- Python 3.14
+- Python 3.12 (recomendado; también funciona con 3.11)
 - Las librerías listadas en `requirements.txt`
 
 ### Instalación
 
 1. Clona el repositorio:
 ```bash
-git clone https://github.com/tu-usuario/domain-analysis-tool.git
-cd domain-analysis-tool
+git clone https://github.com/Alaldb/TFG-Telecomunications-Sincotron-Images-Processing.git
+cd TFG-Telecomunications-Sincotron-Images-Processing
 ```
 
-2. Instala las dependencias:
+2. Crea y activa un entorno aislado:
+
+**Opción A — venv (Python estándar)**
+```bash
+python3.12 -m venv venv
+source venv/bin/activate        # Linux / macOS
+venv\Scripts\activate           # Windows
+```
+
+**Opción B — Anaconda / Miniconda**
+```bash
+conda create -n domain-analysis python=3.12
+conda activate domain-analysis
+```
+
+3. Instala las dependencias:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Ejecuta la aplicación:
+4. Ejecuta la aplicación:
 ```bash
 python main.py
 ```
@@ -174,23 +189,38 @@ Domain Analysis Tool is a desktop application for the analysis of scientific mic
 
 ### Requirements
 
-- Python 3.14
+- Python 3.12 (recommended; 3.11 also works)
 - Libraries listed in `requirements.txt`
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/domain-analysis-tool.git
-cd domain-analysis-tool
+git clone https://github.com/Alaldb/TFG-Telecomunications-Sincotron-Images-Processing.git
+cd TFG-Telecomunications-Sincotron-Images-Processing
 ```
 
-2. Install dependencies:
+2. Create and activate an isolated environment:
+
+**Option A — venv (standard Python)**
+```bash
+python3.12 -m venv venv
+source venv/bin/activate        # Linux / macOS
+venv\Scripts\activate           # Windows
+```
+
+**Option B — Anaconda / Miniconda**
+```bash
+conda create -n domain-analysis python=3.12
+conda activate domain-analysis
+```
+
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Run the application:
+4. Run the application:
 ```bash
 python main.py
 ```
