@@ -204,15 +204,15 @@ cd TFG-Telecomunications-Sincotron-Images-Processing
 
 **Option A — venv (standard Python)**
 ```bash
-python3.12 -m venv venv
-source venv/bin/activate        # Linux / macOS
-venv\Scripts\activate           # Windows
+python3.12 -m venv dAT
+source dAT/bin/activate        # Linux / macOS
+dAT\Scripts\activate           # Windows
 ```
 
 **Option B — Anaconda / Miniconda**
 ```bash
-conda create -n domain-analysis python=3.12
-conda activate domain-analysis
+conda create -n dAT python=3.12
+conda activate dAT
 ```
 
 3. Install dependencies:
@@ -297,16 +297,16 @@ Metrics are computed automatically for each domain using `skimage.measure.region
 |---|---|---|
 | Low intensity end | 0 – 255 | Minimum intensity value. Pixels below this are clipped to black. |
 | High intensity end | 0 – 255 | Maximum intensity value. Pixels above this are clipped to white. |
-| Brightness | -127&nbsp–&nbsp127 | Additive offset applied to all pixels. 0 means no change. |
+| Brightness | -127&nbsp;–&nbsp127; | Additive offset applied to all pixels. 0 means no change. |
 | Contrast | ≥ 0.1 | Multiplicative factor applied to the image. 1.0 means no change. Use `.` as decimal separator. |
-| Crop borders | 0&nbsp–&nbsp100&nbsppx | Removes N pixels from each border before processing. Useful when borders introduce segmentation artifacts. |
+| Crop borders | 0&nbsp;–&nbsp;100&nbs;ppx | Removes N pixels from each border before processing. Useful when borders introduce segmentation artifacts. |
 
 #### Segmentation — ICM
 
 | Parameter | Range | Description |
 |---|---|---|
 | Beta | ≥ 0.0 | Spatial regularization. Higher values produce smoother boundaries between states. Typical range: 0.5 – 5. |
-| Max Iterations | 1&nbsp–&nbsp200 | Maximum number of iterations. The algorithm stops earlier if it converges. |
+| Max Iterations | 1&nbsp;–&nbsp;200 | Maximum number of iterations. The algorithm stops earlier if it converges. |
 | Num States | 2 – 8 | Number of intensity states to segment. 3 is typical for magnetic domain images. |
 
 #### Segmentation — Graph Cuts
