@@ -120,7 +120,7 @@ Las métricas se calculan automáticamente para cada dominio usando `skimage.mea
 |---|---|---|
 | Low intensity end | 0 – 255 | Valor mínimo del rango de intensidad. Los píxeles por debajo de este valor se recortan a negro. |
 | High intensity end | 0 – 255 | Valor máximo del rango de intensidad. Los píxeles por encima se recortan a blanco. |
-| Brightness | -127&nbsp;–&nbsp;127 | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
+| Brightness | <nobr>-127 – 127</nobr> | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
 | Contrast | ≥ 0.1 | Factor multiplicativo sobre la imagen. 1.0 no aplica cambio. Usar `.` como separador decimal. |
 | Crop borders | 0&nbsp;–&nbsp;100&nbsp;px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
 
