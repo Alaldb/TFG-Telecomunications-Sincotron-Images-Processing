@@ -27,9 +27,9 @@ cd TFG-Telecomunications-Sincotron-Images-Processing
 
 **Opción A — venv (Python estándar)**
 ```bash
-python3.12 -m venv venv
-source venv/bin/activate        # Linux / macOS
-venv\Scripts\activate           # Windows
+python3.12 -m venv dAT
+source dAT/bin/activate        # Linux / macOS
+dAT\Scripts\activate           # Windows
 ```
 
 **Opción B — Anaconda / Miniconda**

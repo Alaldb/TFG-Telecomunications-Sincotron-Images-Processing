@@ -170,8 +170,9 @@ class LoadPanel(QWidget):
         loaded_layout.addLayout(method_row)
         loaded_layout.addLayout(bottom_row)
         
-
+        main_layout.addStretch()
         main_layout.addWidget(self.loaded_state)
+        main_layout.addStretch()
 
     def onLoadImageClicked(self):
         path, _ = QFileDialog.getOpenFileName(

@@ -253,7 +253,7 @@ class ResultsPanel(QWidget):
         self.cancel_but.clicked.connect(self.cancelled)
 
         self.export_but=QPushButton("Export Corrected Image")
-        self.export_but.setFixedWidth(180)
+        self.export_but.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         self.export_but.clicked.connect(self.onExportClicked)
 
         self.exportmetric_but=QPushButton("Export Metrics")
