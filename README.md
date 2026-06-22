@@ -120,9 +120,9 @@ Las métricas se calculan automáticamente para cada dominio usando `skimage.mea
 |---|---|---|
 | Low intensity end | 0 – 255 | Valor mínimo del rango de intensidad. Los píxeles por debajo de este valor se recortan a negro. |
 | High intensity end | 0 – 255 | Valor máximo del rango de intensidad. Los píxeles por encima se recortan a blanco. |
-| Brightness | <nobr>-127 – 127</nobr> | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
+| Brightness | -127&nbsp;–&nbsp;127 | Desplazamiento aditivo sobre todos los píxeles. 0 no aplica cambio. |
 | Contrast | ≥ 0.1 | Factor multiplicativo sobre la imagen. 1.0 no aplica cambio. Usar `.` como separador decimal. |
-| Crop borders | 0&nbsp;–&nbsp;100&nbsp;px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
+| Crop borders | 0–&nbsp;100&nbsp;px | Recorta N píxeles de cada borde antes del procesado. Útil si los bordes introducen artefactos en la segmentación. |
 
 #### Segmentación — ICM
 
@@ -297,16 +297,16 @@ Metrics are computed automatically for each domain using `skimage.measure.region
 |---|---|---|
 | Low intensity end | 0 – 255 | Minimum intensity value. Pixels below this are clipped to black. |
 | High intensity end | 0 – 255 | Maximum intensity value. Pixels above this are clipped to white. |
-| Brightness | -127 – 127 | Additive offset applied to all pixels. 0 means no change. |
+| Brightness | -127&nbsp–&nbsp127 | Additive offset applied to all pixels. 0 means no change. |
 | Contrast | ≥ 0.1 | Multiplicative factor applied to the image. 1.0 means no change. Use `.` as decimal separator. |
-| Crop borders | 0 – 100 px | Removes N pixels from each border before processing. Useful when borders introduce segmentation artifacts. |
+| Crop borders | 0&nbsp–&nbsp100&nbsppx | Removes N pixels from each border before processing. Useful when borders introduce segmentation artifacts. |
 
 #### Segmentation — ICM
 
 | Parameter | Range | Description |
 |---|---|---|
 | Beta | ≥ 0.0 | Spatial regularization. Higher values produce smoother boundaries between states. Typical range: 0.5 – 5. |
-| Max Iterations | 1 – 200 | Maximum number of iterations. The algorithm stops earlier if it converges. |
+| Max Iterations | 1&nbsp–&nbsp200 | Maximum number of iterations. The algorithm stops earlier if it converges. |
 | Num States | 2 – 8 | Number of intensity states to segment. 3 is typical for magnetic domain images. |
 
 #### Segmentation — Graph Cuts
