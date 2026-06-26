@@ -11,8 +11,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QImage, QIntValidator
 from PySide6.QtCore import QThread, Qt, Signal, QSize
-
-from core.pipeline import PipelineDictator
 from interface.styles import COLORS
 from core.session import Session
 from processing.domainService import DomainService

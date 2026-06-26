@@ -13,6 +13,8 @@ from core.segmentationContainer import SegmentationContainer
 from interface.panels.graphCutsPanel import GraphCutsPanel
 from interface.panels.startPanel import StartPanel
 from interface.panels.domainComparisonPanel import DomainComparisonPanel
+from processing.domainService import DomainService
+from stats.domainStats import computeDomainStats
 
 class MainWindow(QMainWindow):
 
@@ -110,7 +112,6 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.graph_cuts_panel)
 
     def onSegmentationAccepted(self, ising_container: SegmentationContainer):
-        from core.pipeline import PipelineDictator
         self.session = Session(
             image_name=self.image_name,
             original_image=self.image,
@@ -121,10 +122,11 @@ class MainWindow(QMainWindow):
             segmentation_container=ising_container,
             segmentation_method=ising_container.method
         )
-        pipeline = PipelineDictator()
+        domain_service = DomainService(self.session.segmentation_container)
+        self.session.domain_data = domain_service.get_data()
+        self.session.domain_stats = computeDomainStats(self.session.domain_data["labeled_images"])
         self.results_panel.cancelled.disconnect()
         self.results_panel.cancelled.connect(self.goToSegmentation)
-        self.session = pipeline.run_domains(self.session)
         self.results_panel.loadSession(self.session)
         self.stack.setCurrentWidget(self.results_panel)
 
