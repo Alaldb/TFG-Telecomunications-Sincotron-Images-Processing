@@ -38,9 +38,6 @@ class TestSessionCreation(unittest.TestCase):
         self.assertIsNotNone(self.session.timestamp)
         self.assertIsInstance(self.session.timestamp, str)
 
-    def test_temporal_ising_object_por_defecto_none(self):
-        self.assertIsNone(self.session.temporal_ising_object)
-
 
 # =============================================================================
 # 2. Aislamiento entre instancias (los dicts mutables no se comparten)

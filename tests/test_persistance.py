@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 
 from core.session import Session
+from core.segmentationContainer import SegmentationMethod
 from persistence.session_io import loadSession, saveSession, exportCorrectedImage
 
 
@@ -27,6 +28,7 @@ class TestSessionIO(unittest.TestCase):
                 0: {1: {"area": 10.0}, 2: {"area": 5.0}},
                 1: {1: {"area": 8.0}},
             },
+            segmentation_method=SegmentationMethod.ICM,
         )
         self.tmp = tempfile.NamedTemporaryFile(suffix=".session", delete=False)
         self.path = self.tmp.name

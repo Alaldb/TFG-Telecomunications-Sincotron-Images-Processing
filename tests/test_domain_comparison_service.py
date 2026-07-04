@@ -19,7 +19,7 @@ def _make_domain(
     values: np.ndarray | None = None,
 ) -> dict:
     if coords is None:
-        coords = np.array([[i, i] for i in range(int(area))], dtype=float)
+        coords = np.array([[i, i] for i in range(int(area))], dtype=float).reshape(-1, 2)
     if values is None:
         values = np.full(len(coords), 128.0)
     return {
