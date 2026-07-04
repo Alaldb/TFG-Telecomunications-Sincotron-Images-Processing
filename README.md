@@ -12,7 +12,7 @@ Domain Analysis Tool es una aplicación de escritorio para el análisis de imág
 
 ### Requisitos
 
-- Python 3.12 (recomendado; también funciona con 3.11)
+- Python 3.12 en adelante (recomendado; también funciona con 3.11)
 - Las librerías listadas en `requirements.txt`
 
 ### Instalación
@@ -27,7 +27,7 @@ cd TFG-Telecomunications-Sincotron-Images-Processing
 
 **Opción A — venv (Python estándar)**
 ```bash
-python3.12 -m venv dAT
+python -m venv dAT
 source dAT/bin/activate        # Linux / macOS
 dAT\Scripts\activate           # Windows
 ```
@@ -189,7 +189,7 @@ Domain Analysis Tool is a desktop application for the analysis of scientific mic
 
 ### Requirements
 
-- Python 3.12 (recommended; 3.11 also works)
+- Python 3.12 or newer (recommended; 3.11 also works)
 - Libraries listed in `requirements.txt`
 
 ### Installation
